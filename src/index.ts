@@ -1,13 +1,50 @@
+export * from "./core/capabilities";
 export { JmapBatch, JmapClient, JmapHttpError } from "./core/client";
+export { CoreEcho } from "./core/core-methods";
+export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods";
 export { AccountId, CallId, MailboxId } from "./core/ids";
 export type { JmapMethod } from "./core/method";
 export { JmapProtocolError, JmapResponse } from "./core/response";
+export type { JmapMethodError, JmapSetResponse } from "./core/set";
+export { getSetError } from "./core/set";
 export {
   createBasicAuthorizationHeader,
   discoverJmapSession,
   resolvePrimaryAccountId,
 } from "./core/session";
 export type { JmapSession, JmapSessionAccount } from "./core/session";
-export { EmailGet, EmailQuery, MailboxGet } from "./mail/methods";
+export {
+  EmailGet,
+  EmailQuery,
+  EmailSet,
+  EmailSubmissionSet,
+  IdentityGet,
+  IdentitySet,
+  MailboxGet,
+  ThreadGet,
+} from "./mail/methods";
+export { JmapIdentities } from "./mail/jmap-identities";
 export { JmapMail } from "./mail/jmap-mail";
 export type * from "./mail/types";
+export { QuotaGet } from "./quota/methods";
+export { JmapQuota } from "./quota/jmap-quota";
+export type * from "./quota/types";
+export { VacationResponseGet, VacationResponseSet } from "./vacation/methods";
+export { JmapVacation } from "./vacation/jmap-vacation";
+export type * from "./vacation/types";
+export { AddressBookGet, ContactCardGet, ContactCardQuery, ContactCardSet } from "./contacts/methods";
+export { JmapContacts } from "./contacts/jmap-contacts";
+export type * from "./contacts/types";
+export {
+  CalendarEventGet,
+  CalendarEventParse,
+  CalendarEventQuery,
+  CalendarEventSet,
+  CalendarGet,
+  CalendarSet,
+} from "./calendars/methods";
+export { DEFAULT_CALENDAR_EVENT_PROPERTIES, JmapCalendars } from "./calendars/jmap-calendars";
+export type * from "./calendars/types";
+export { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./sieve/methods";
+export { JmapSieve } from "./sieve/jmap-sieve";
+export type * from "./sieve/types";

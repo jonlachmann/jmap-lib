@@ -4,13 +4,20 @@ import { MailboxId } from "../core/ids";
 import type {
   EmailGetRequest,
   EmailGetResponse,
+  EmailSetRequest,
+  EmailSubmissionSetRequest,
   EmailProperty,
   EmailQueryFilter,
   EmailQueryRequest,
   EmailQueryResponse,
+  IdentityGetRequest,
+  IdentityGetResponse,
+  IdentitySetRequest,
   MailboxProperty,
   MailboxGetRequest,
   MailboxGetResponse,
+  ThreadGetRequest,
+  ThreadGetResponse,
 } from "./types";
 
 export class MailboxGet implements JmapMethod<MailboxGetRequest, MailboxGetResponse> {
@@ -88,5 +95,67 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
       },
       properties,
     });
+  }
+}
+
+export class EmailSet implements JmapMethod<EmailSetRequest, import("../core/set").JmapSetResponse> {
+  readonly methodName = "Email/set";
+  readonly arguments: EmailSetRequest;
+
+  constructor(args: EmailSetRequest) {
+    this.arguments = args;
+  }
+}
+
+export class EmailSubmissionSet
+  implements JmapMethod<EmailSubmissionSetRequest, import("../core/set").JmapSetResponse>
+{
+  readonly methodName = "EmailSubmission/set";
+  readonly arguments: EmailSubmissionSetRequest;
+
+  constructor(args: EmailSubmissionSetRequest) {
+    this.arguments = args;
+  }
+}
+
+export class ThreadGet implements JmapMethod<ThreadGetRequest, ThreadGetResponse> {
+  readonly methodName = "Thread/get";
+  readonly arguments: ThreadGetRequest;
+
+  constructor(args: ThreadGetRequest) {
+    this.arguments = args;
+  }
+
+  static byIds(accountId: AccountId, ids: readonly string[]): ThreadGet {
+    return new ThreadGet({
+      accountId: accountId.value,
+      ids,
+    });
+  }
+}
+
+export class IdentityGet implements JmapMethod<IdentityGetRequest, IdentityGetResponse> {
+  readonly methodName = "Identity/get";
+  readonly arguments: IdentityGetRequest;
+
+  constructor(args: IdentityGetRequest) {
+    this.arguments = args;
+  }
+
+  static all(accountId: AccountId): IdentityGet {
+    return new IdentityGet({
+      accountId: accountId.value,
+    });
+  }
+}
+
+export class IdentitySet
+  implements JmapMethod<IdentitySetRequest, import("../core/set").JmapSetResponse>
+{
+  readonly methodName = "Identity/set";
+  readonly arguments: IdentitySetRequest;
+
+  constructor(args: IdentitySetRequest) {
+    this.arguments = args;
   }
 }

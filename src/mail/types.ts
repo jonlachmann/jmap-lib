@@ -51,6 +51,7 @@ export interface MailboxGetResponse {
 }
 
 export interface EmailQueryFilter {
+  [key: string]: unknown;
   inMailbox?: string;
 }
 
@@ -128,6 +129,81 @@ export interface JmapEmail {
   preview?: string;
   hasAttachment?: boolean;
   size?: number;
+}
+
+export interface EmailSetRequest {
+  accountId: string;
+  create?: Record<string, Record<string, unknown>>;
+  update?: Record<string, Record<string, unknown>>;
+  destroy?: readonly string[];
+}
+
+export interface EmailSubmission {
+  id: string;
+  identityId: string;
+  emailId: string;
+  threadId?: string;
+  envelope?: {
+    mailFrom: JmapEmailAddress;
+    rcptTo: JmapEmailAddress[];
+  };
+  sendAt?: string;
+  undoStatus?: "pending" | "final" | "canceled";
+}
+
+export interface EmailSubmissionSetRequest {
+  accountId: string;
+  create?: Record<string, {
+    emailId: string;
+    identityId: string;
+  }>;
+}
+
+export interface Thread {
+  id: string;
+  emailIds: string[];
+}
+
+export interface ThreadGetRequest {
+  accountId: string;
+  ids?: readonly string[];
+}
+
+export interface ThreadGetResponse {
+  accountId: string;
+  state?: string;
+  list: Thread[];
+  notFound?: string[];
+}
+
+export interface Identity {
+  id: string;
+  name: string;
+  email: string;
+  replyTo?: JmapEmailAddress[];
+  bcc?: JmapEmailAddress[];
+  textSignature?: string;
+  htmlSignature?: string;
+  mayDelete?: boolean;
+}
+
+export interface IdentityGetRequest {
+  accountId: string;
+  ids?: readonly string[] | null;
+}
+
+export interface IdentityGetResponse {
+  accountId: string;
+  state?: string;
+  list: Identity[];
+  notFound?: string[];
+}
+
+export interface IdentitySetRequest {
+  accountId: string;
+  create?: Record<string, Partial<Identity>>;
+  update?: Record<string, Partial<Identity>>;
+  destroy?: readonly string[];
 }
 
 export type IdReference<MethodName extends string = string> = {

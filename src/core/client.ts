@@ -4,6 +4,9 @@ import { JmapProtocolError, JmapResponse, type RawMethodResponse, type RawJmapRe
 
 type FetchLike = typeof fetch;
 type RawMethodCall = [string, unknown, string];
+type JmapRequestOptions = {
+  capabilities?: readonly string[];
+};
 
 export class JmapHttpError extends Error {
   readonly status: number;
@@ -61,18 +64,29 @@ export class JmapClient {
     }
   }
 
-  batch(): JmapBatch {
-    return new JmapBatch((calls) => this.send(calls));
+  getCapabilities(): readonly string[] {
+    return [...this.capabilities];
   }
 
-  async invoke<Request, Response>(method: JmapMethod<Request, Response>): Promise<Response> {
-    const batch = this.batch();
+  hasCapability(capability: string): boolean {
+    return this.capabilities.includes(capability);
+  }
+
+  batch(options?: JmapRequestOptions): JmapBatch {
+    return new JmapBatch((calls) => this.send(calls, options));
+  }
+
+  async invoke<Request, Response>(
+    method: JmapMethod<Request, Response>,
+    options?: JmapRequestOptions,
+  ): Promise<Response> {
+    const batch = this.batch(options);
     const callId = batch.call(method);
     const response = await batch.send();
     return response.get<Response>(callId, method.methodName);
   }
 
-  private async send(methodCalls: RawMethodCall[]): Promise<JmapResponse> {
+  private async send(methodCalls: RawMethodCall[], options?: JmapRequestOptions): Promise<JmapResponse> {
     const response = await this.fetchImpl(this.endpoint, {
       method: "POST",
       headers: {
@@ -80,7 +94,7 @@ export class JmapClient {
         authorization: this.authorizationHeader,
       },
       body: JSON.stringify({
-        using: this.capabilities,
+        using: options?.capabilities ?? this.capabilities,
         methodCalls,
       }),
     });
