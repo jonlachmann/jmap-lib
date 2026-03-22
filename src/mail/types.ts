@@ -1,8 +1,33 @@
+export type JmapMailboxRole =
+  | "all"
+  | "archive"
+  | "drafts"
+  | "important"
+  | "inbox"
+  | "junk"
+  | "sent"
+  | "snoozed"
+  | "trash"
+  | (string & {});
+
+export type MailboxProperty =
+  | "id"
+  | "name"
+  | "parentId"
+  | "role"
+  | "sortOrder"
+  | "totalEmails"
+  | "unreadEmails"
+  | "totalThreads"
+  | "unreadThreads"
+  | "isSubscribed"
+  | "myRights";
+
 export interface JmapMailbox {
   id: string;
   name: string;
   parentId?: string | null;
-  role?: string | null;
+  role?: JmapMailboxRole | null;
   sortOrder?: number;
   totalEmails?: number;
   unreadEmails?: number;
@@ -14,8 +39,8 @@ export interface JmapMailbox {
 
 export interface MailboxGetRequest {
   accountId: string;
-  ids?: string[] | null;
-  properties?: string[];
+  ids?: readonly string[] | null;
+  properties?: readonly MailboxProperty[];
 }
 
 export interface MailboxGetResponse {
@@ -29,15 +54,27 @@ export interface EmailQueryFilter {
   inMailbox?: string;
 }
 
+export type EmailQuerySortProperty =
+  | "id"
+  | "receivedAt"
+  | "sentAt"
+  | "size"
+  | "from"
+  | "to"
+  | "subject"
+  | "hasKeyword"
+  | "someInThreadHaveKeyword"
+  | (string & {});
+
 export interface EmailQuerySort {
-  property: string;
+  property: EmailQuerySortProperty;
   isAscending?: boolean;
 }
 
 export interface EmailQueryRequest {
   accountId: string;
   filter?: EmailQueryFilter;
-  sort?: EmailQuerySort[];
+  sort?: readonly EmailQuerySort[];
   position?: number;
   limit?: number;
   calculateTotal?: boolean;
@@ -58,31 +95,52 @@ export interface JmapEmailAddress {
   email: string;
 }
 
+export type EmailProperty =
+  | "id"
+  | "threadId"
+  | "mailboxIds"
+  | "keywords"
+  | "size"
+  | "receivedAt"
+  | "sentAt"
+  | "from"
+  | "to"
+  | "cc"
+  | "bcc"
+  | "replyTo"
+  | "subject"
+  | "preview"
+  | "hasAttachment";
+
 export interface JmapEmail {
   id: string;
   threadId: string;
   mailboxIds: Record<string, boolean>;
   keywords?: Record<string, boolean>;
   receivedAt?: string;
+  sentAt?: string;
   from?: JmapEmailAddress[];
   to?: JmapEmailAddress[];
+  cc?: JmapEmailAddress[];
+  bcc?: JmapEmailAddress[];
+  replyTo?: JmapEmailAddress[];
   subject?: string;
   preview?: string;
   hasAttachment?: boolean;
   size?: number;
 }
 
-export type IdReference = {
+export type IdReference<MethodName extends string = string> = {
   resultOf: string;
-  name: string;
+  name: MethodName;
   path: string;
 };
 
 export interface EmailGetRequest {
   accountId: string;
-  ids?: string[];
-  "#ids"?: IdReference;
-  properties?: string[];
+  ids?: readonly string[];
+  "#ids"?: IdReference<"Email/query">;
+  properties?: readonly EmailProperty[];
 }
 
 export interface EmailGetResponse {

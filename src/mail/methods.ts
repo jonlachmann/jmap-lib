@@ -4,9 +4,11 @@ import { MailboxId } from "../core/ids";
 import type {
   EmailGetRequest,
   EmailGetResponse,
+  EmailProperty,
   EmailQueryFilter,
   EmailQueryRequest,
   EmailQueryResponse,
+  MailboxProperty,
   MailboxGetRequest,
   MailboxGetResponse,
 } from "./types";
@@ -19,7 +21,7 @@ export class MailboxGet implements JmapMethod<MailboxGetRequest, MailboxGetRespo
     this.arguments = args;
   }
 
-  static all(accountId: AccountId, properties?: string[]): MailboxGet {
+  static all(accountId: AccountId, properties?: readonly MailboxProperty[]): MailboxGet {
     return new MailboxGet({
       accountId: accountId.value,
       properties,
@@ -64,7 +66,7 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
     this.arguments = args;
   }
 
-  static byIds(accountId: AccountId, ids: string[], properties?: string[]): EmailGet {
+  static byIds(accountId: AccountId, ids: readonly string[], properties?: readonly EmailProperty[]): EmailGet {
     return new EmailGet({
       accountId: accountId.value,
       ids,
@@ -72,7 +74,11 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
     });
   }
 
-  static byQueryResult(accountId: AccountId, queryCallId: CallId, properties?: string[]): EmailGet {
+  static byQueryResult(
+    accountId: AccountId,
+    queryCallId: CallId,
+    properties?: readonly EmailProperty[],
+  ): EmailGet {
     return new EmailGet({
       accountId: accountId.value,
       "#ids": {

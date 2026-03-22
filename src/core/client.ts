@@ -4,8 +4,6 @@ import { JmapProtocolError, JmapResponse, type RawMethodResponse, type RawJmapRe
 
 type FetchLike = typeof fetch;
 type RawMethodCall = [string, unknown, string];
-type JmapMethodResponse<M extends JmapMethod<unknown, unknown>> =
-  M extends JmapMethod<unknown, infer Response> ? Response : never;
 
 export class JmapHttpError extends Error {
   readonly status: number;
@@ -23,7 +21,7 @@ type JmapClientOptions = {
   endpoint: string;
   accessToken?: string;
   authorizationHeader?: string;
-  capabilities: string[];
+  capabilities: readonly string[];
   fetch?: FetchLike;
 };
 
@@ -67,11 +65,11 @@ export class JmapClient {
     return new JmapBatch((calls) => this.send(calls));
   }
 
-  async invoke<M extends JmapMethod<unknown, unknown>>(method: M): Promise<JmapMethodResponse<M>> {
+  async invoke<Request, Response>(method: JmapMethod<Request, Response>): Promise<Response> {
     const batch = this.batch();
     const callId = batch.call(method);
     const response = await batch.send();
-    return response.get<JmapMethodResponse<M>>(callId, method.methodName);
+    return response.get<Response>(callId, method.methodName);
   }
 
   private async send(methodCalls: RawMethodCall[]): Promise<JmapResponse> {

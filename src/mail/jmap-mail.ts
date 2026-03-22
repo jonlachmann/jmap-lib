@@ -1,7 +1,14 @@
 import { AccountId, MailboxId } from "../core/ids";
 import { JmapClient } from "../core/client";
 import { EmailGet, EmailQuery, MailboxGet } from "./methods";
-import type { EmailGetResponse, EmailQueryResponse, JmapEmail, MailboxGetResponse } from "./types";
+import type {
+  EmailGetResponse,
+  EmailProperty,
+  EmailQueryResponse,
+  JmapEmail,
+  MailboxGetRequest,
+  MailboxGetResponse,
+} from "./types";
 
 type GetAllMailboxesResult = {
   results: Array<{ accountId: AccountId; response: MailboxGetResponse }>;
@@ -13,7 +20,7 @@ type ListPageOptions = {
   mailboxId?: MailboxId;
   limit?: number;
   position?: number;
-  properties?: string[];
+  properties?: readonly EmailProperty[];
 };
 
 type ListPageResult = {
@@ -30,7 +37,8 @@ export class JmapMail {
 
     const settled = await Promise.allSettled(
       options.accountIds.map(async (accountId): Promise<MailboxSuccess> => {
-        const response = await this.client.invoke(MailboxGet.all(accountId)) as MailboxGetResponse;
+        const method = MailboxGet.all(accountId);
+        const response = await this.client.invoke<MailboxGetRequest, MailboxGetResponse>(method);
         return { accountId, response };
       }),
     );
