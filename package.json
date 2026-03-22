@@ -1,8 +1,8 @@
 {
   "name": "jmap-lib",
   "version": "0.1.0",
-  "description": "Minimal framework-agnostic JMAP library skeleton in TypeScript",
-  "license": "ISC",
+  "description": "Framework-agnostic TypeScript JMAP library with typed protocol methods, convenience clients, and real-server integration tests",
+  "license": "MIT",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
@@ -25,6 +25,14 @@
   "engines": {
     "node": ">=20"
   },
+  "keywords": [
+    "jmap",
+    "email",
+    "calendar",
+    "contacts",
+    "sieve",
+    "typescript"
+  ],
   "devDependencies": {
     "@types/node": "^22.13.14",
     "tsx": "^4.19.3",
