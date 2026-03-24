@@ -11,3 +11,7 @@ export function findInboxMailbox(mailboxes: JmapMailbox[]): JmapMailbox | undefi
   return mailboxes.find((mailbox) => mailbox.role === "inbox")
     ?? mailboxes.find((mailbox) => mailbox.name.toLowerCase() === "inbox");
 }
+
+export function findMailboxByRole(mailboxes: JmapMailbox[], role: string): JmapMailbox | undefined {
+  return mailboxes.find((mailbox) => mailbox.role === role);
+}

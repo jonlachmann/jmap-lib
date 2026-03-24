@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   AccountId,
   CORE_CALENDARS_CAPABILITIES,
+  CORE_CALENDARS_PARSE_CAPABILITIES,
   CORE_CONTACTS_CAPABILITIES,
   CORE_MAIL_SUBMISSION_CAPABILITIES,
   CORE_MAIL_VACATION_CAPABILITIES,
@@ -150,6 +151,29 @@ test("JmapCalendars.list uses calendar capabilities", async () => {
 
   assert.equal(result[0].id, "cal1");
   assert.deepEqual(using, [...CORE_CALENDARS_CAPABILITIES]);
+});
+
+test("JmapCalendars.parse uses calendars parse capabilities", async () => {
+  let using: string[] | undefined;
+  const calendars = new JmapCalendars(new JmapClient({
+    endpoint: "https://example.test/jmap",
+    accessToken: "secret",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async (_url, init) => {
+      using = JSON.parse(String(init?.body)).using;
+      return new Response(
+        JSON.stringify({
+          methodResponses: [["CalendarEvent/parse", { accountId: "acc", parsed: { "blob-1": [{ title: "Parsed" }] } }, "0"]],
+        }),
+        { status: 200 },
+      );
+    },
+  }));
+
+  const result = await calendars.parse(AccountId.of("acc"), "blob-1");
+
+  assert.equal(result[0].title, "Parsed");
+  assert.deepEqual(using, [...CORE_CALENDARS_PARSE_CAPABILITIES]);
 });
 
 test("JmapSieve.list uses sieve capabilities", async () => {

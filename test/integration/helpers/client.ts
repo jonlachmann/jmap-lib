@@ -9,6 +9,7 @@ export interface IntegrationClientContext {
   session: JmapSession;
   client: JmapClient;
   accountId: AccountId;
+  authorizationHeader: string;
 }
 
 export async function createIntegrationClientContext(
@@ -27,5 +28,6 @@ export async function createIntegrationClientContext(
     session: discovered.session,
     client,
     accountId,
+    authorizationHeader: discovered.authorizationHeader,
   };
 }

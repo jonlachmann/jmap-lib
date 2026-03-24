@@ -1,4 +1,4 @@
-import { CORE_CALENDARS_CAPABILITIES } from "../core/capabilities";
+import { CORE_CALENDARS_CAPABILITIES, CORE_CALENDARS_PARSE_CAPABILITIES } from "../core/capabilities";
 import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
 import { getSetError } from "../core/set";
@@ -238,7 +238,7 @@ export class JmapCalendars {
         accountId: accountId.value,
         blobIds: [blobId],
       }),
-      { capabilities: CORE_CALENDARS_CAPABILITIES },
+      { capabilities: CORE_CALENDARS_PARSE_CAPABILITIES },
     );
 
     if (response.notParsable?.includes(blobId)) {

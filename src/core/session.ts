@@ -9,6 +9,8 @@ export interface JmapSessionAccount {
 
 export interface JmapSession {
   apiUrl: string;
+  downloadUrl?: string;
+  uploadUrl?: string;
   capabilities: Record<string, unknown>;
   primaryAccounts?: Record<string, string>;
   accounts?: Record<string, JmapSessionAccount>;
