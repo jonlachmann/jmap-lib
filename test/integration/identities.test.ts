@@ -1,42 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  JMAP_SUBMISSION_CAPABILITY,
-  JmapIdentities,
-} from "jmap-lib";
-import {
-  getSingleUserIntegrationSkipReason,
-  loadSingleUserIntegrationConfig,
-} from "./helpers/config.js";
-import { createIntegrationClientContext } from "./helpers/client.js";
-import { hasServerCapability } from "./helpers/capabilities.js";
+import { getSingleUserIntegrationSkipReason } from "./helpers/config.js";
+import { createIdentitiesIntegrationContext } from "./helpers/identities.js";
 import { createIntegrationId } from "./helpers/ids.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can list identities when submission is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SUBMISSION_CAPABILITY}`);
-    return;
-  }
-
-  const identities = await new JmapIdentities(context.client).list(context.accountId);
+test("integration: lists identities when submission is supported", { skip }, async (t) => {
+  const setup = await createIdentitiesIntegrationContext(t);
+  if (!setup) return;
+  const { context, identitiesClient } = setup;
+  const identities = await identitiesClient.list(context.accountId);
   assert.ok(Array.isArray(identities));
   assert.ok(identities.length > 0, "expected at least one identity");
 });
 
-test("integration: can create an identity when submission is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SUBMISSION_CAPABILITY}`);
-    return;
-  }
-
-  const identitiesClient = new JmapIdentities(context.client);
+test("integration: creates an identity when submission is supported", { skip }, async (t) => {
+  const setup = await createIdentitiesIntegrationContext(t);
+  if (!setup) return;
+  const { context, identitiesClient } = setup;
   const existing = await identitiesClient.list(context.accountId);
-  assert.ok(existing.length > 0, "expected at least one existing identity");
 
   const clientId = createIntegrationId("create-identity");
   const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
@@ -53,16 +37,11 @@ test("integration: can create an identity when submission is supported", { skip 
   }
 });
 
-test("integration: can update an identity when submission is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SUBMISSION_CAPABILITY}`);
-    return;
-  }
-
-  const identitiesClient = new JmapIdentities(context.client);
+test("integration: updates an identity when submission is supported", { skip }, async (t) => {
+  const setup = await createIdentitiesIntegrationContext(t);
+  if (!setup) return;
+  const { context, identitiesClient } = setup;
   const existing = await identitiesClient.list(context.accountId);
-  assert.ok(existing.length > 0, "expected at least one existing identity");
 
   const clientId = createIntegrationId("update-identity");
   const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
@@ -89,16 +68,11 @@ test("integration: can update an identity when submission is supported", { skip 
   }
 });
 
-test("integration: can destroy an identity when submission is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SUBMISSION_CAPABILITY}`);
-    return;
-  }
-
-  const identitiesClient = new JmapIdentities(context.client);
+test("integration: destroys an identity when submission is supported", { skip }, async (t) => {
+  const setup = await createIdentitiesIntegrationContext(t);
+  if (!setup) return;
+  const { context, identitiesClient } = setup;
   const existing = await identitiesClient.list(context.accountId);
-  assert.ok(existing.length > 0, "expected at least one existing identity");
 
   const clientId = createIntegrationId("destroy-identity");
   const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {

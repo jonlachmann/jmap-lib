@@ -1,3 +1,7 @@
+import type { JmapGetArgs } from "../core/get";
+import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapSetArgs } from "../core/set";
+
 export type JmapMailboxRole =
   | "all"
   | "archive"
@@ -37,11 +41,7 @@ export interface JmapMailbox {
   myRights?: Record<string, boolean>;
 }
 
-export interface MailboxGetRequest {
-  accountId: string;
-  ids?: readonly string[] | null;
-  properties?: readonly MailboxProperty[];
-}
+export interface MailboxGetRequest extends JmapGetArgs<MailboxProperty> {}
 
 export interface MailboxGetResponse {
   accountId: string;
@@ -67,19 +67,9 @@ export type EmailQuerySortProperty =
   | "someInThreadHaveKeyword"
   | (string & {});
 
-export interface EmailQuerySort {
-  property: EmailQuerySortProperty;
-  isAscending?: boolean;
-}
+export interface EmailQuerySort extends JmapComparator<EmailQuerySortProperty> {}
 
-export interface EmailQueryRequest {
-  accountId: string;
-  filter?: EmailQueryFilter;
-  sort?: readonly EmailQuerySort[];
-  position?: number;
-  limit?: number;
-  calculateTotal?: boolean;
-}
+export interface EmailQueryRequest extends JmapQueryArgs<EmailQueryFilter, EmailQuerySort> {}
 
 export interface EmailQueryResponse {
   accountId: string;
@@ -131,12 +121,7 @@ export interface JmapEmail {
   size?: number;
 }
 
-export interface EmailSetRequest {
-  accountId: string;
-  create?: Record<string, Record<string, unknown>>;
-  update?: Record<string, Record<string, unknown>>;
-  destroy?: readonly string[];
-}
+export interface EmailSetRequest extends JmapSetArgs<Record<string, unknown>, Record<string, unknown>> {}
 
 export interface EmailSubmission {
   id: string;
@@ -164,10 +149,9 @@ export interface Thread {
   emailIds: string[];
 }
 
-export interface ThreadGetRequest {
-  accountId: string;
-  ids?: readonly string[];
-}
+export type ThreadProperty = "id" | "emailIds";
+
+export interface ThreadGetRequest extends JmapGetArgs<ThreadProperty> {}
 
 export interface ThreadGetResponse {
   accountId: string;
@@ -187,10 +171,17 @@ export interface Identity {
   mayDelete?: boolean;
 }
 
-export interface IdentityGetRequest {
-  accountId: string;
-  ids?: readonly string[] | null;
-}
+export type IdentityProperty =
+  | "id"
+  | "name"
+  | "email"
+  | "replyTo"
+  | "bcc"
+  | "textSignature"
+  | "htmlSignature"
+  | "mayDelete";
+
+export interface IdentityGetRequest extends JmapGetArgs<IdentityProperty> {}
 
 export interface IdentityGetResponse {
   accountId: string;
@@ -199,12 +190,7 @@ export interface IdentityGetResponse {
   notFound?: string[];
 }
 
-export interface IdentitySetRequest {
-  accountId: string;
-  create?: Record<string, Partial<Identity>>;
-  update?: Record<string, Partial<Identity>>;
-  destroy?: readonly string[];
-}
+export interface IdentitySetRequest extends JmapSetArgs<Partial<Identity>, Partial<Identity>> {}
 
 export type IdReference<MethodName extends string = string> = {
   resultOf: string;
@@ -212,11 +198,8 @@ export type IdReference<MethodName extends string = string> = {
   path: string;
 };
 
-export interface EmailGetRequest {
-  accountId: string;
-  ids?: readonly string[];
+export interface EmailGetRequest extends JmapGetArgs<EmailProperty> {
   "#ids"?: IdReference<"Email/query">;
-  properties?: readonly EmailProperty[];
 }
 
 export interface EmailGetResponse {

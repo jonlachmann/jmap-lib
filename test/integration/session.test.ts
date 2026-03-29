@@ -10,7 +10,7 @@ import { discoverIntegrationSession } from "./helpers/session.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can fetch JMAP session via .well-known/jmap", { skip }, async () => {
+test("integration: fetches the JMAP session document via .well-known/jmap", { skip }, async () => {
   const config = loadSingleUserIntegrationConfig();
   const discovered = await discoverIntegrationSession(config);
 
@@ -20,7 +20,7 @@ test("integration: can fetch JMAP session via .well-known/jmap", { skip }, async
   assert.ok(discovered.authorizationHeader.startsWith("Basic "), "expected Basic auth header");
 });
 
-test("integration: can derive a primary or fallback account id from session data", { skip }, async () => {
+test("integration: resolves a primary or fallback account id from session data", { skip }, async () => {
   const config = loadSingleUserIntegrationConfig();
   const discovered = await discoverIntegrationSession(config);
   const accountId = config.accountId ?? resolvePrimaryAccountId(discovered.session);

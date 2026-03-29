@@ -4,6 +4,14 @@ export interface JmapMethodError {
   [key: string]: unknown;
 }
 
+export interface JmapSetArgs<TCreate, TUpdate> {
+  accountId: string;
+  ifInState?: string | null;
+  create?: Record<string, TCreate>;
+  update?: Record<string, TUpdate>;
+  destroy?: readonly string[];
+}
+
 export interface JmapSetResponse<Created extends { id: string } = { id: string }> {
   accountId: string;
   oldState?: string;

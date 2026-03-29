@@ -1,5 +1,6 @@
 import { AccountId, MailboxId } from "../core/ids";
 import { JmapClient } from "../core/client";
+import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
 import { EmailGet, EmailQuery, EmailSet, EmailSubmissionSet, MailboxGet, ThreadGet } from "./methods";
 import type {
@@ -41,7 +42,7 @@ type ListPageResult = {
 
 type QueryPageOptions = {
   accountId: AccountId;
-  filter?: EmailQueryFilter;
+  filter?: FilterOperatorCondition<EmailQueryFilter>;
   limit?: number;
   position?: number;
   properties?: readonly EmailProperty[];

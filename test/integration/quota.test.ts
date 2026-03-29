@@ -10,7 +10,7 @@ import { createIntegrationClientContext } from "./helpers/client.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can fetch quota information", { skip }, async () => {
+test("integration: fetches quota information", { skip }, async () => {
   const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
   const quota = await new JmapQuota(context.client).get(context.accountId);
 

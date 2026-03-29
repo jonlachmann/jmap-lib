@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CalendarEventGet,
+  CalendarEventQuery,
   DEFAULT_CALENDAR_EVENT_PROPERTIES,
-  JMAP_CALENDARS_CAPABILITY,
   JMAP_CALENDARS_PARSE_CAPABILITY,
   JmapCalendars,
 } from "jmap-lib";
@@ -13,37 +14,28 @@ import {
 } from "./helpers/config.js";
 import { createIntegrationClientContext } from "./helpers/client.js";
 import { hasServerCapability } from "./helpers/capabilities.js";
+import { createCalendarsIntegrationContext } from "./helpers/calendars.js";
 import { createIntegrationId } from "./helpers/ids.js";
 import { uploadIntegrationBlob } from "./helpers/upload.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can fetch calendars when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
+test("integration: lists calendars when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { calendars } = setup;
 
   assert.ok(Array.isArray(calendars));
-  assert.ok(calendars.length > 0, "expected at least one calendar");
   for (const calendar of calendars) {
     assert.equal(typeof calendar.id, "string");
     assert.equal(typeof calendar.name, "string");
   }
 });
 
-test("integration: can create a calendar when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
+test("integration: creates a calendar when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("create-calendar");
   const calendarId = await calendarsClient.create(context.accountId, clientId, {
     name: `Integration ${clientId}`,
@@ -59,14 +51,10 @@ test("integration: can create a calendar when calendars is supported", { skip },
   }
 });
 
-test("integration: can update a calendar when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
+test("integration: updates a calendar when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("update-calendar");
   const calendarId = await calendarsClient.create(context.accountId, clientId, {
     name: `Original ${clientId}`,
@@ -91,14 +79,10 @@ test("integration: can update a calendar when calendars is supported", { skip },
   }
 });
 
-test("integration: can destroy a calendar when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
+test("integration: destroys a calendar when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("destroy-calendar");
   const calendarId = await calendarsClient.create(context.accountId, clientId, {
     name: `Destroy ${clientId}`,
@@ -115,19 +99,13 @@ test("integration: can destroy a calendar when calendars is supported", { skip }
   );
 });
 
-test("integration: can list calendar events when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
-  assert.ok(calendars.length > 0, "expected at least one calendar");
+test("integration: lists calendar events when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
   const events = await calendarsClient.listEvents(
     context.accountId,
-    [calendars[0].id],
+    [calendar.id],
     DEFAULT_CALENDAR_EVENT_PROPERTIES,
   );
 
@@ -141,14 +119,10 @@ test("integration: can list calendar events when calendars is supported", { skip
   }
 });
 
-test("integration: can query calendar events when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
+test("integration: queries calendar events when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
   const events = await calendarsClient.queryEvents(
     context.accountId,
     {},
@@ -159,21 +133,98 @@ test("integration: can query calendar events when calendars is supported", { ski
   assert.ok(events.length <= 10);
 });
 
-test("integration: can create a calendar event when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
+test("integration: queries calendar events with an operator filter when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendar } = setup;
 
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
-  assert.ok(calendars.length > 0, "expected at least one calendar");
+  const batch = context.client.batch();
+  const queryCallId = batch.call(new CalendarEventQuery({
+    accountId: context.accountId.value,
+    filter: {
+      operator: "AND",
+      conditions: [
+        { inCalendars: [calendar.id] },
+      ],
+    },
+    limit: 10,
+  }));
+  const getCallId = batch.call(
+    CalendarEventGet.byQueryResult(context.accountId, queryCallId, DEFAULT_CALENDAR_EVENT_PROPERTIES),
+  );
+
+  const response = await batch.send();
+  const query = response.get<{ ids: string[] }>(queryCallId, "CalendarEvent/query");
+  const events = response.get<{ list: Array<{ id: string; calendarIds: Record<string, boolean> }> }>(
+    getCallId,
+    "CalendarEvent/get",
+  ).list;
+
+  assert.ok(Array.isArray(query.ids));
+  assert.ok(events.length <= 10);
+  for (const event of events) {
+    assert.equal(typeof event.id, "string");
+    assert.equal(typeof event.calendarIds, "object");
+  }
+});
+
+test("integration: queries seeded calendar events deterministically and destroys them afterwards", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
+  const marker = createIntegrationId("query-events");
+
+  const firstEventId = await calendarsClient.createEvent(
+    context.accountId,
+    createClientId("query-event-1"),
+    buildEventPayload(calendar.id, `${marker}-alpha`),
+  );
+  const secondEventId = await calendarsClient.createEvent(
+    context.accountId,
+    createClientId("query-event-2"),
+    buildEventPayload(calendar.id, `${marker}-beta`),
+  );
+
+  try {
+    const batch = context.client.batch();
+    const queryCallId = batch.call(new CalendarEventQuery({
+      accountId: context.accountId.value,
+      filter: {
+        operator: "AND",
+        conditions: [
+          { inCalendars: [calendar.id] },
+          { text: marker },
+        ],
+      },
+      limit: 10,
+    }));
+    const getCallId = batch.call(
+      CalendarEventGet.byQueryResult(context.accountId, queryCallId, DEFAULT_CALENDAR_EVENT_PROPERTIES),
+    );
+
+    const response = await batch.send();
+    const query = response.get<{ ids: string[] }>(queryCallId, "CalendarEvent/query");
+    const events = response.get<{ list: Array<{ id: string }> }>(getCallId, "CalendarEvent/get").list;
+
+    assert.ok(query.ids.includes(firstEventId), "expected first seeded event in query results");
+    assert.ok(query.ids.includes(secondEventId), "expected second seeded event in query results");
+    assert.ok(events.some((event) => event.id === firstEventId));
+    assert.ok(events.some((event) => event.id === secondEventId));
+  } finally {
+    await calendarsClient.destroyEvent(context.accountId, firstEventId);
+    await calendarsClient.destroyEvent(context.accountId, secondEventId);
+  }
+});
+
+test("integration: creates a calendar event when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
 
   const eventId = await calendarsClient.createEvent(
     context.accountId,
     createClientId("create-event"),
-    buildEventPayload(calendars[0].id, "Create event"),
+    buildEventPayload(calendar.id, "Create event"),
   );
 
   try {
@@ -184,21 +235,15 @@ test("integration: can create a calendar event when calendars is supported", { s
   }
 });
 
-test("integration: can get a created calendar event when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
-  assert.ok(calendars.length > 0, "expected at least one calendar");
+test("integration: gets a created calendar event when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
 
   const eventId = await calendarsClient.createEvent(
     context.accountId,
     createClientId("get-event"),
-    buildEventPayload(calendars[0].id, "Get event"),
+    buildEventPayload(calendar.id, "Get event"),
   );
 
   try {
@@ -216,22 +261,16 @@ test("integration: can get a created calendar event when calendars is supported"
   }
 });
 
-test("integration: can update a calendar event when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
-  assert.ok(calendars.length > 0, "expected at least one calendar");
+test("integration: updates a calendar event when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
 
   const updatedTitle = `Updated event ${Date.now()}`;
   const eventId = await calendarsClient.createEvent(
     context.accountId,
     createClientId("update-event"),
-    buildEventPayload(calendars[0].id, "Original event"),
+    buildEventPayload(calendar.id, "Original event"),
   );
 
   try {
@@ -253,21 +292,15 @@ test("integration: can update a calendar event when calendars is supported", { s
   }
 });
 
-test("integration: can destroy a calendar event when calendars is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CALENDARS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CALENDARS_CAPABILITY}`);
-    return;
-  }
-
-  const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
-  assert.ok(calendars.length > 0, "expected at least one calendar");
+test("integration: destroys a calendar event when calendars is supported", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient, calendar } = setup;
 
   const eventId = await calendarsClient.createEvent(
     context.accountId,
     createClientId("destroy-event"),
-    buildEventPayload(calendars[0].id, "Destroy event"),
+    buildEventPayload(calendar.id, "Destroy event"),
   );
 
   await calendarsClient.destroyEvent(context.accountId, eventId);
@@ -281,7 +314,7 @@ test("integration: can destroy a calendar event when calendars is supported", { 
   assert.equal(event, undefined);
 });
 
-test("integration: can parse calendar events from an uploaded ics blob when calendars is supported", { skip }, async (t) => {
+test("integration: parses calendar events from an uploaded ics blob when calendars is supported", { skip }, async (t) => {
   const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
   if (!hasServerCapability(context.session, JMAP_CALENDARS_PARSE_CAPABILITY)) {
     t.skip(`server does not advertise ${JMAP_CALENDARS_PARSE_CAPABILITY}`);

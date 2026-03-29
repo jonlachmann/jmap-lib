@@ -3,9 +3,18 @@ export { JmapBatch, JmapClient, JmapHttpError } from "./core/client";
 export { CoreEcho } from "./core/core-methods";
 export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods";
 export { AccountId, CallId, MailboxId } from "./core/ids";
+export type { JmapGetArgs } from "./core/get";
 export type { JmapMethod } from "./core/method";
+export type {
+  FilterOperatorCondition,
+  JmapComparator,
+  JmapFilterCondition,
+  JmapFilterOperator,
+  JmapFilterOperatorName,
+  JmapQueryArgs,
+} from "./core/query";
 export { JmapProtocolError, JmapResponse } from "./core/response";
-export type { JmapMethodError, JmapSetResponse } from "./core/set";
+export type { JmapMethodError, JmapSetArgs, JmapSetResponse } from "./core/set";
 export { getSetError } from "./core/set";
 export {
   createBasicAuthorizationHeader,

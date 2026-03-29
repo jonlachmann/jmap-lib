@@ -1,3 +1,6 @@
+import type { JmapGetArgs } from "../core/get";
+import type { JmapSetArgs } from "../core/set";
+
 export interface VacationResponse {
   id: string;
   isEnabled: boolean;
@@ -8,10 +11,16 @@ export interface VacationResponse {
   htmlBody: string | null;
 }
 
-export interface VacationResponseGetRequest {
-  accountId: string;
-  ids?: readonly string[];
-}
+export type VacationResponseProperty =
+  | "id"
+  | "isEnabled"
+  | "fromDate"
+  | "toDate"
+  | "subject"
+  | "textBody"
+  | "htmlBody";
+
+export interface VacationResponseGetRequest extends JmapGetArgs<VacationResponseProperty> {}
 
 export interface VacationResponseGetResponse {
   accountId: string;
@@ -19,7 +28,6 @@ export interface VacationResponseGetResponse {
   list: VacationResponse[];
 }
 
-export interface VacationResponseSetRequest {
-  accountId: string;
+export interface VacationResponseSetRequest extends JmapSetArgs<never, Partial<VacationResponse>> {
   update: Record<string, Partial<VacationResponse>>;
 }

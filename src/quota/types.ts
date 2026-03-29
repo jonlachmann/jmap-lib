@@ -1,3 +1,5 @@
+import type { JmapGetArgs } from "../core/get";
+
 export interface JmapQuota {
   resourceType?: string;
   scope?: string;
@@ -6,9 +8,9 @@ export interface JmapQuota {
   limit?: number;
 }
 
-export interface QuotaGetRequest {
-  accountId: string;
-}
+export type QuotaProperty = "resourceType" | "scope" | "used" | "hardLimit" | "limit";
+
+export interface QuotaGetRequest extends JmapGetArgs<QuotaProperty> {}
 
 export interface QuotaGetResponse {
   accountId: string;

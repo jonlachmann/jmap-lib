@@ -1,6 +1,7 @@
 import { CORE_CALENDARS_CAPABILITIES, CORE_CALENDARS_PARSE_CAPABILITIES } from "../core/capabilities";
 import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
+import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
 import {
   CalendarEventGet,
@@ -135,7 +136,7 @@ export class JmapCalendars {
 
   async queryEvents(
     accountId: AccountId,
-    filter: CalendarEventFilter,
+    filter: FilterOperatorCondition<CalendarEventFilter>,
     options?: {
       sort?: readonly { property: string; isAscending: boolean }[];
       limit?: number;

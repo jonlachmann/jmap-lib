@@ -1,56 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  JMAP_SIEVE_CAPABILITY,
-  JmapSieve,
-} from "jmap-lib";
-import {
-  getSingleUserIntegrationSkipReason,
-  loadSingleUserIntegrationConfig,
-} from "./helpers/config.js";
-import { createIntegrationClientContext } from "./helpers/client.js";
-import { hasServerCapability } from "./helpers/capabilities.js";
+import { getSingleUserIntegrationSkipReason } from "./helpers/config.js";
 import { createIntegrationId } from "./helpers/ids.js";
+import { createSieveIntegrationContext } from "./helpers/sieve.js";
 import { uploadIntegrationBlob } from "./helpers/upload.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can list sieve scripts when sieve is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SIEVE_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SIEVE_CAPABILITY}`);
-    return;
-  }
-
-  const scripts = await new JmapSieve(context.client).list(context.accountId);
+test("integration: lists sieve scripts when sieve is supported", { skip }, async (t) => {
+  const setup = await createSieveIntegrationContext(t);
+  if (!setup) return;
+  const { context, sieve } = setup;
+  const scripts = await sieve.list(context.accountId);
   assert.ok(Array.isArray(scripts));
 });
 
-test("integration: can validate a sieve script when sieve is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SIEVE_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SIEVE_CAPABILITY}`);
-    return;
-  }
+test("integration: validates a sieve script when sieve is supported", { skip }, async (t) => {
+  const setup = await createSieveIntegrationContext(t);
+  if (!setup) return;
+  const { context, sieve } = setup;
 
   const blobId = await uploadIntegrationBlob(context, {
     contentType: "application/sieve",
     body: validSieveScript("integration-valid"),
   });
 
-  const result = await new JmapSieve(context.client).validate(context.accountId, blobId);
+  const result = await sieve.validate(context.accountId, blobId);
   assert.equal(result.isValid, true);
 });
 
-test("integration: can create, update, activate, deactivate, and destroy a sieve script when sieve is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_SIEVE_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_SIEVE_CAPABILITY}`);
-    return;
-  }
-
-  const sieve = new JmapSieve(context.client);
+test("integration: creates, updates, activates, deactivates, and destroys a sieve script when sieve is supported", { skip }, async (t) => {
+  const setup = await createSieveIntegrationContext(t);
+  if (!setup) return;
+  const { context, sieve } = setup;
   const clientId = createIntegrationId("sieve");
   const initialBlobId = await uploadIntegrationBlob(context, {
     contentType: "application/sieve",

@@ -10,7 +10,7 @@ import { fetchMailboxes, findInboxMailbox } from "./helpers/mailboxes.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can fetch mailboxes from discovered JMAP session", { skip }, async () => {
+test("integration: fetches mailboxes using the discovered JMAP session", { skip }, async () => {
   const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
   const response = await fetchMailboxes(context.client, context.accountId);
 
@@ -18,7 +18,7 @@ test("integration: can fetch mailboxes from discovered JMAP session", { skip }, 
   assert.ok(response.list.length > 0, "expected at least one mailbox");
 });
 
-test("integration: inbox mailbox is usually present", { skip }, async () => {
+test("integration: finds an inbox mailbox", { skip }, async () => {
   const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
   const response = await fetchMailboxes(context.client, context.accountId);
   const inbox = findInboxMailbox(response.list);

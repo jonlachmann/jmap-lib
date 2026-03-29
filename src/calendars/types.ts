@@ -1,3 +1,7 @@
+import type { JmapGetArgs } from "../core/get";
+import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapSetArgs } from "../core/set";
+
 export interface Calendar {
   id: string;
   name: string;
@@ -9,6 +13,17 @@ export interface Calendar {
   isDefault?: boolean;
   timeZone?: string | null;
 }
+
+export type CalendarProperty =
+  | "id"
+  | "name"
+  | "description"
+  | "color"
+  | "sortOrder"
+  | "isSubscribed"
+  | "isVisible"
+  | "isDefault"
+  | "timeZone";
 
 export interface CalendarEvent {
   id: string;
@@ -53,6 +68,10 @@ export interface CalendarEventFilter {
   uid?: string;
 }
 
+export type CalendarEventQuerySortProperty = string & {};
+
+export interface CalendarEventQuerySort extends JmapComparator<CalendarEventQuerySortProperty> {}
+
 export type CalendarEventProperty =
   | "id"
   | "uid"
@@ -81,9 +100,7 @@ export type CalendarEventProperty =
   | "recurrenceId"
   | "isOrigin";
 
-export interface CalendarGetRequest {
-  accountId: string;
-}
+export interface CalendarGetRequest extends JmapGetArgs<CalendarProperty> {}
 
 export interface CalendarGetResponse {
   accountId: string;
@@ -91,19 +108,10 @@ export interface CalendarGetResponse {
   list: Calendar[];
 }
 
-export interface CalendarSetRequest {
-  accountId: string;
-  create?: Record<string, Partial<Calendar>>;
-  update?: Record<string, Partial<Calendar>>;
-  destroy?: readonly string[];
-}
+export interface CalendarSetRequest extends JmapSetArgs<Partial<Calendar>, Partial<Calendar>> {}
 
-export interface CalendarEventQueryRequest {
-  accountId: string;
-  filter?: CalendarEventFilter;
-  sort?: readonly { property: string; isAscending: boolean }[];
-  limit?: number;
-}
+export interface CalendarEventQueryRequest
+  extends JmapQueryArgs<CalendarEventFilter, CalendarEventQuerySort> {}
 
 export interface CalendarEventQueryResponse {
   accountId: string;
@@ -113,15 +121,12 @@ export interface CalendarEventQueryResponse {
   total?: number;
 }
 
-export interface CalendarEventGetRequest {
-  accountId: string;
-  ids?: readonly string[];
+export interface CalendarEventGetRequest extends JmapGetArgs<CalendarEventProperty> {
   "#ids"?: {
     resultOf: string;
     name: "CalendarEvent/query";
     path: "/ids";
   };
-  properties?: readonly CalendarEventProperty[];
 }
 
 export interface CalendarEventGetResponse {
@@ -131,11 +136,7 @@ export interface CalendarEventGetResponse {
   notFound?: string[];
 }
 
-export interface CalendarEventSetRequest {
-  accountId: string;
-  create?: Record<string, Partial<CalendarEvent>>;
-  update?: Record<string, Partial<CalendarEvent>>;
-  destroy?: readonly string[];
+export interface CalendarEventSetRequest extends JmapSetArgs<Partial<CalendarEvent>, Partial<CalendarEvent>> {
   sendSchedulingMessages?: boolean;
 }
 

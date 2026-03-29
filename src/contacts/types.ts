@@ -1,3 +1,7 @@
+import type { JmapGetArgs } from "../core/get";
+import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapSetArgs } from "../core/set";
+
 export interface ContactNameComponent {
   kind: "given" | "surname" | "prefix" | "suffix" | "additional";
   value: string;
@@ -65,9 +69,16 @@ export interface AddressBook {
   };
 }
 
-export interface AddressBookGetRequest {
-  accountId: string;
-}
+export type AddressBookProperty =
+  | "id"
+  | "name"
+  | "description"
+  | "sortOrder"
+  | "isDefault"
+  | "isSubscribed"
+  | "myRights";
+
+export interface AddressBookGetRequest extends JmapGetArgs<AddressBookProperty> {}
 
 export interface AddressBookGetResponse {
   accountId: string;
@@ -75,14 +86,16 @@ export interface AddressBookGetResponse {
   list: AddressBook[];
 }
 
-export interface ContactCardQueryRequest {
-  accountId: string;
-  filter?: {
-    inAddressBook?: string;
-    text?: string;
-  };
-  limit?: number;
+export interface ContactCardQueryFilter {
+  inAddressBook?: string;
+  text?: string;
 }
+
+export type ContactCardQuerySortProperty = string & {};
+
+export interface ContactCardQuerySort extends JmapComparator<ContactCardQuerySortProperty> {}
+
+export interface ContactCardQueryRequest extends JmapQueryArgs<ContactCardQueryFilter, ContactCardQuerySort> {}
 
 export interface ContactCardQueryResponse {
   accountId: string;
@@ -92,9 +105,21 @@ export interface ContactCardQueryResponse {
   total?: number;
 }
 
-export interface ContactCardGetRequest {
-  accountId: string;
-  ids?: readonly string[];
+export type ContactCardProperty =
+  | "id"
+  | "uid"
+  | "addressBookIds"
+  | "kind"
+  | "name"
+  | "emails"
+  | "phones"
+  | "organizations"
+  | "addresses"
+  | "members"
+  | "created"
+  | "updated";
+
+export interface ContactCardGetRequest extends JmapGetArgs<ContactCardProperty> {
   "#ids"?: {
     resultOf: string;
     name: "ContactCard/query";
@@ -109,9 +134,4 @@ export interface ContactCardGetResponse {
   notFound?: string[];
 }
 
-export interface ContactCardSetRequest {
-  accountId: string;
-  create?: Record<string, Partial<ContactCard>>;
-  update?: Record<string, Partial<ContactCard>>;
-  destroy?: readonly string[];
-}
+export interface ContactCardSetRequest extends JmapSetArgs<Partial<ContactCard>, Partial<ContactCard>> {}

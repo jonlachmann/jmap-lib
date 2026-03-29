@@ -1,3 +1,6 @@
+import type { JmapGetArgs } from "../core/get";
+import type { JmapSetArgs } from "../core/set";
+
 export interface SieveScript {
   id: string;
   name: string;
@@ -5,9 +8,9 @@ export interface SieveScript {
   isActive: boolean;
 }
 
-export interface SieveScriptGetRequest {
-  accountId: string;
-}
+export type SieveScriptProperty = "id" | "name" | "blobId" | "isActive";
+
+export interface SieveScriptGetRequest extends JmapGetArgs<SieveScriptProperty> {}
 
 export interface SieveScriptGetResponse {
   accountId: string;
@@ -15,11 +18,10 @@ export interface SieveScriptGetResponse {
   list: SieveScript[];
 }
 
-export interface SieveScriptSetRequest {
-  accountId: string;
-  create?: Record<string, { name: string; blobId: string }>;
-  update?: Record<string, { blobId: string }>;
-  destroy?: readonly string[];
+export interface SieveScriptSetRequest extends JmapSetArgs<
+  { name: string; blobId: string },
+  { blobId: string }
+> {
   onSuccessActivateScript?: string | null;
 }
 

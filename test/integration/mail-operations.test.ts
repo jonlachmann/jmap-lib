@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   JMAP_SUBMISSION_CAPABILITY,
   JmapIdentities,
-  type JmapMailbox,
   JmapMail,
   MailboxId,
 } from "jmap-lib";
@@ -15,16 +14,14 @@ import {
 import { createIntegrationClientContext } from "./helpers/client.js";
 import { hasServerCapability } from "./helpers/capabilities.js";
 import { createIntegrationId } from "./helpers/ids.js";
-import { findMailboxByRole } from "./helpers/mailboxes.js";
+import { createMailIntegrationContext, requireMailboxByRole } from "./helpers/mail.js";
 import { uploadIntegrationBlob } from "./helpers/upload.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: mail query and get methods can fetch created drafts", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+test("integration: query and get methods fetch created drafts", { skip }, async () => {
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const subject = `Draft ${createIntegrationId("query")}`;
   const draftId = await createDraft(
     mail,
@@ -88,11 +85,9 @@ test("integration: mail query and get methods can fetch created drafts", { skip 
   }
 });
 
-test("integration: mail keyword and tag update methods work on drafts", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+test("integration: keyword and tag update methods modify drafts", { skip }, async () => {
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const tag = createIntegrationId("tag");
   const draftId = await createDraft(
     mail,
@@ -136,10 +131,8 @@ test("integration: mail keyword and tag update methods work on drafts", { skip }
 });
 
 test("integration: batch mark as read updates multiple drafts", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftAddress = await resolveDraftAddress(context);
   const firstDraftId = await createDraft(mail, context.accountId, drafts.id, `Batch 1 ${Date.now()}`, draftAddress);
   const secondDraftId = await createDraft(mail, context.accountId, drafts.id, `Batch 2 ${Date.now()}`, draftAddress);
@@ -157,11 +150,9 @@ test("integration: batch mark as read updates multiple drafts", { skip }, async 
   }
 });
 
-test("integration: move and moveMany can move drafts to another mailbox", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+test("integration: move and moveMany move drafts to another mailbox", { skip }, async () => {
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const target = requireMoveTargetMailbox(mailboxes, drafts.id);
   const draftAddress = await resolveDraftAddress(context);
   const firstDraftId = await createDraft(mail, context.accountId, drafts.id, `Move 1 ${Date.now()}`, draftAddress);
@@ -185,11 +176,9 @@ test("integration: move and moveMany can move drafts to another mailbox", { skip
   }
 });
 
-test("integration: destroy and destroyMany can remove drafts", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+test("integration: destroy and destroyMany remove drafts", { skip }, async () => {
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftAddress = await resolveDraftAddress(context);
   const firstDraftId = await createDraft(mail, context.accountId, drafts.id, `Destroy 1 ${Date.now()}`, draftAddress);
   const secondDraftId = await createDraft(mail, context.accountId, drafts.id, `Destroy 2 ${Date.now()}`, draftAddress);
@@ -203,11 +192,9 @@ test("integration: destroy and destroyMany can remove drafts", { skip }, async (
   assert.equal(await mail.getEmail(context.accountId, thirdDraftId, ["id"]), undefined);
 });
 
-test("integration: createDraft supports attachments", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+test("integration: createDraft creates drafts with attachments", { skip }, async () => {
+  const { context, mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftAddress = await resolveDraftAddress(context);
   const blobId = await uploadIntegrationBlob(context, {
     contentType: "text/plain",
@@ -238,7 +225,7 @@ test("integration: createDraft supports attachments", { skip }, async () => {
   }
 });
 
-test("integration: can submit a created draft when submission is supported", { skip }, async (t) => {
+test("integration: submits a created draft when submission is supported", { skip }, async (t) => {
   const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
   if (!hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
     t.skip(`server does not advertise ${JMAP_SUBMISSION_CAPABILITY}`);
@@ -249,9 +236,8 @@ test("integration: can submit a created draft when submission is supported", { s
   const identities = await identitiesClient.list(context.accountId);
   assert.ok(identities.length > 0, "expected at least one identity");
 
-  const mail = new JmapMail(context.client);
-  const mailboxes = (await mail.getMailboxes(context.accountId)).list;
-  const drafts = requireMailbox(mailboxes, "drafts");
+  const { mail, mailboxes } = await createMailIntegrationContext();
+  const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftId = await mail.createDraft({
     accountId: context.accountId,
     clientId: createIntegrationId("submit"),
@@ -265,9 +251,8 @@ test("integration: can submit a created draft when submission is supported", { s
   await mail.submit(context.accountId, identities[0].id, draftId);
 });
 
-test("integration: can get all mailboxes across accounts", { skip }, async () => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  const mail = new JmapMail(context.client);
+test("integration: getAllMailboxes returns mailboxes across accounts", { skip }, async () => {
+  const { context, mail } = await createMailIntegrationContext();
   const result = await mail.getAllMailboxes({ accountIds: [context.accountId] });
 
   assert.equal(result.failures.length, 0);
@@ -277,7 +262,7 @@ test("integration: can get all mailboxes across accounts", { skip }, async () =>
 });
 
 async function createDraft(
-  mail: JmapMail,
+  mail: import("jmap-lib").JmapMail,
   accountId: import("jmap-lib").AccountId,
   draftsMailboxId: string,
   subject: string,
@@ -294,22 +279,13 @@ async function createDraft(
   });
 }
 
-function requireMailbox(
-  mailboxes: JmapMailbox[],
-  role: string,
-): JmapMailbox {
-  const mailbox = findMailboxByRole(mailboxes, role);
-  assert.ok(mailbox, `expected a ${role} mailbox`);
-  return mailbox;
-}
-
 function requireMoveTargetMailbox(
-  mailboxes: JmapMailbox[],
+  mailboxes: import("jmap-lib").JmapMailbox[],
   sourceMailboxId: string,
-): JmapMailbox {
+): import("jmap-lib").JmapMailbox {
   const preferredRoles = ["trash", "archive", "inbox", "sent"];
   for (const role of preferredRoles) {
-    const mailbox = findMailboxByRole(mailboxes, role);
+    const mailbox = role === "drafts" ? undefined : mailboxes.find((candidate) => candidate.role === role);
     if (mailbox && mailbox.id !== sourceMailboxId) {
       return mailbox;
     }

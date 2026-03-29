@@ -2,47 +2,34 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  JMAP_CONTACTS_CAPABILITY,
-  JmapContacts,
+  ContactCardGet,
+  ContactCardQuery,
 } from "jmap-lib";
 import {
   getSingleUserIntegrationSkipReason,
-  loadSingleUserIntegrationConfig,
 } from "./helpers/config.js";
-import { createIntegrationClientContext } from "./helpers/client.js";
-import { hasServerCapability } from "./helpers/capabilities.js";
+import { createContactsIntegrationContext } from "./helpers/contacts.js";
+import { createIntegrationId } from "./helpers/ids.js";
 
 const skip = getSingleUserIntegrationSkipReason();
 
-test("integration: can fetch address books when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
+test("integration: lists address books when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { addressBooks } = setup;
 
   assert.ok(Array.isArray(addressBooks));
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
   for (const addressBook of addressBooks) {
     assert.equal(typeof addressBook.id, "string");
     assert.equal(typeof addressBook.name, "string");
   }
 });
 
-test("integration: can list contacts from an address book when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
-  const contactCards = await contacts.list(context.accountId, addressBooks[0].id);
+test("integration: lists contacts from an address book when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
+  const contactCards = await contacts.list(context.accountId, addressBook.id);
 
   assert.ok(Array.isArray(contactCards));
   for (const contact of contactCards.slice(0, 10)) {
@@ -51,35 +38,104 @@ test("integration: can list contacts from an address book when contacts is suppo
   }
 });
 
-test("integration: can search contacts when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
+test("integration: searches contacts when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts } = setup;
   const result = await contacts.search(context.accountId, "a", 10);
 
   assert.ok(Array.isArray(result));
   assert.ok(result.length <= 10);
 });
 
-test("integration: can create a contact when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
+test("integration: queries contacts with an operator filter when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, addressBook } = setup;
 
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
+  const batch = context.client.batch();
+  const queryCallId = batch.call(new ContactCardQuery({
+    accountId: context.accountId.value,
+    filter: {
+      operator: "AND",
+      conditions: [
+        { inAddressBook: addressBook.id },
+      ],
+    },
+    limit: 10,
+  }));
+  const getCallId = batch.call(ContactCardGet.byQueryResult(context.accountId, queryCallId));
+
+  const response = await batch.send();
+  const query = response.get<{ ids: string[] }>(queryCallId, "ContactCard/query");
+  const contactCards = response.get<{ list: Array<{ id: string; addressBookIds: Record<string, boolean> }> }>(
+    getCallId,
+    "ContactCard/get",
+  ).list;
+
+  assert.ok(Array.isArray(query.ids));
+  assert.ok(contactCards.length <= 10);
+  for (const contact of contactCards) {
+    assert.equal(typeof contact.id, "string");
+    assert.equal(typeof contact.addressBookIds, "object");
+  }
+});
+
+test("integration: queries seeded contacts deterministically and destroys them afterwards", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
+  const marker = createIntegrationId("query-contacts");
+
+  const firstContactId = await contacts.create(
+    context.accountId,
+    createClientId("query-contact-1"),
+    buildContactPayload(addressBook.id, `${marker}-alpha`),
+  );
+  const secondContactId = await contacts.create(
+    context.accountId,
+    createClientId("query-contact-2"),
+    buildContactPayload(addressBook.id, `${marker}-beta`),
+  );
+
+  try {
+    const batch = context.client.batch();
+    const queryCallId = batch.call(new ContactCardQuery({
+      accountId: context.accountId.value,
+      filter: {
+        operator: "AND",
+        conditions: [
+          { inAddressBook: addressBook.id },
+          { text: marker },
+        ],
+      },
+      limit: 10,
+    }));
+    const getCallId = batch.call(ContactCardGet.byQueryResult(context.accountId, queryCallId));
+
+    const response = await batch.send();
+    const query = response.get<{ ids: string[] }>(queryCallId, "ContactCard/query");
+    const contactCards = response.get<{ list: Array<{ id: string }> }>(getCallId, "ContactCard/get").list;
+
+    assert.ok(query.ids.includes(firstContactId), "expected first seeded contact in query results");
+    assert.ok(query.ids.includes(secondContactId), "expected second seeded contact in query results");
+    assert.ok(contactCards.some((contact) => contact.id === firstContactId));
+    assert.ok(contactCards.some((contact) => contact.id === secondContactId));
+  } finally {
+    await contacts.destroy(context.accountId, firstContactId);
+    await contacts.destroy(context.accountId, secondContactId);
+  }
+});
+
+test("integration: creates a contact when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
 
   const contactId = await contacts.create(
     context.accountId,
     createClientId("create-contact"),
-    buildContactPayload(addressBooks[0].id, "Create contact"),
+    buildContactPayload(addressBook.id, "Create contact"),
   );
 
   try {
@@ -90,21 +146,15 @@ test("integration: can create a contact when contacts is supported", { skip }, a
   }
 });
 
-test("integration: can get a created contact when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
+test("integration: gets a created contact when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
 
   const contactId = await contacts.create(
     context.accountId,
     createClientId("get-contact"),
-    buildContactPayload(addressBooks[0].id, "Get contact"),
+    buildContactPayload(addressBook.id, "Get contact"),
   );
 
   try {
@@ -118,22 +168,16 @@ test("integration: can get a created contact when contacts is supported", { skip
   }
 });
 
-test("integration: can update a contact when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
+test("integration: updates a contact when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
 
   const updatedGivenName = `Updated-${Date.now()}`;
   const contactId = await contacts.create(
     context.accountId,
     createClientId("update-contact"),
-    buildContactPayload(addressBooks[0].id, "Update contact"),
+    buildContactPayload(addressBook.id, "Update contact"),
   );
 
   try {
@@ -154,21 +198,15 @@ test("integration: can update a contact when contacts is supported", { skip }, a
   }
 });
 
-test("integration: can destroy a contact when contacts is supported", { skip }, async (t) => {
-  const context = await createIntegrationClientContext(loadSingleUserIntegrationConfig());
-  if (!hasServerCapability(context.session, JMAP_CONTACTS_CAPABILITY)) {
-    t.skip(`server does not advertise ${JMAP_CONTACTS_CAPABILITY}`);
-    return;
-  }
-
-  const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
-  assert.ok(addressBooks.length > 0, "expected at least one address book");
+test("integration: destroys a contact when contacts is supported", { skip }, async (t) => {
+  const setup = await createContactsIntegrationContext(t);
+  if (!setup) return;
+  const { context, contacts, addressBook } = setup;
 
   const contactId = await contacts.create(
     context.accountId,
     createClientId("destroy-contact"),
-    buildContactPayload(addressBooks[0].id, "Destroy contact"),
+    buildContactPayload(addressBook.id, "Destroy contact"),
   );
 
   await contacts.destroy(context.accountId, contactId);
