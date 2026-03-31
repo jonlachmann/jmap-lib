@@ -11,7 +11,10 @@ export type {
   JmapFilterCondition,
   JmapFilterOperator,
   JmapFilterOperatorName,
+  JmapQueryAddedItem,
   JmapQueryArgs,
+  JmapQueryChangesArgs,
+  JmapQueryChangesResponse,
 } from "./core/query";
 export { JmapProtocolError, JmapResponse } from "./core/response";
 export type { JmapMethodError, JmapSetArgs, JmapSetResponse } from "./core/set";
@@ -25,6 +28,7 @@ export type { JmapSession, JmapSessionAccount } from "./core/session";
 export {
   EmailGet,
   EmailQuery,
+  EmailQueryChanges,
   EmailSet,
   EmailSubmissionSet,
   IdentityGet,
@@ -41,13 +45,20 @@ export type * from "./quota/types";
 export { VacationResponseGet, VacationResponseSet } from "./vacation/methods";
 export { JmapVacation } from "./vacation/jmap-vacation";
 export type * from "./vacation/types";
-export { AddressBookGet, ContactCardGet, ContactCardQuery, ContactCardSet } from "./contacts/methods";
+export {
+  AddressBookGet,
+  ContactCardGet,
+  ContactCardQuery,
+  ContactCardQueryChanges,
+  ContactCardSet,
+} from "./contacts/methods";
 export { JmapContacts } from "./contacts/jmap-contacts";
 export type * from "./contacts/types";
 export {
   CalendarEventGet,
   CalendarEventParse,
   CalendarEventQuery,
+  CalendarEventQueryChanges,
   CalendarEventSet,
   CalendarGet,
   CalendarSet,

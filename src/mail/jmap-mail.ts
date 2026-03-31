@@ -2,18 +2,21 @@ import { AccountId, MailboxId } from "../core/ids";
 import { JmapClient } from "../core/client";
 import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
-import { EmailGet, EmailQuery, EmailSet, EmailSubmissionSet, MailboxGet, ThreadGet } from "./methods";
+import { EmailGet, EmailQuery, EmailQueryChanges, EmailSet, EmailSubmissionSet, MailboxGet, ThreadGet } from "./methods";
 import type {
   EmailGetResponse,
   EmailGetRequest,
   EmailSetRequest,
   EmailSubmissionSetRequest,
   EmailProperty,
+  EmailQueryChangesRequest,
+  EmailQueryChangesResponse,
   EmailQueryRequest,
   EmailQueryResponse,
   JmapEmail,
   JmapEmailAddress,
   EmailQueryFilter,
+  EmailQuerySort,
   Thread,
   ThreadGetRequest,
   ThreadGetResponse,
@@ -122,6 +125,30 @@ export class JmapMail {
     const hasMore = total > 0 ? position + emails.length < total : emails.length === limit;
 
     return { query, emails, hasMore };
+  }
+
+  async queryChanges(
+    accountId: AccountId,
+    options: {
+      filter?: FilterOperatorCondition<EmailQueryFilter>;
+      sort?: readonly EmailQuerySort[];
+      sinceQueryState: string;
+      maxChanges?: number;
+      upToId?: string;
+      calculateTotal?: boolean;
+    },
+  ): Promise<EmailQueryChangesResponse> {
+    return this.client.invoke<EmailQueryChangesRequest, EmailQueryChangesResponse>(
+      new EmailQueryChanges({
+        accountId: accountId.value,
+        filter: options.filter,
+        sort: options.sort,
+        sinceQueryState: options.sinceQueryState,
+        maxChanges: options.maxChanges,
+        upToId: options.upToId,
+        calculateTotal: options.calculateTotal,
+      }),
+    );
   }
 
   async search(options: Omit<QueryPageOptions, "filter"> & { text: string; mailboxId?: MailboxId }): Promise<ListPageResult> {

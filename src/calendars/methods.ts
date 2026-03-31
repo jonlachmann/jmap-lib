@@ -6,6 +6,8 @@ import type {
   CalendarEventParseRequest,
   CalendarEventParseResponse,
   CalendarEventQueryRequest,
+  CalendarEventQueryChangesRequest,
+  CalendarEventQueryChangesResponse,
   CalendarEventQueryResponse,
   CalendarEventSetRequest,
   CalendarGetRequest,
@@ -45,6 +47,17 @@ export class CalendarEventQuery
   readonly arguments: CalendarEventQueryRequest;
 
   constructor(args: CalendarEventQueryRequest) {
+    this.arguments = args;
+  }
+}
+
+export class CalendarEventQueryChanges
+  implements JmapMethod<CalendarEventQueryChangesRequest, CalendarEventQueryChangesResponse>
+{
+  readonly methodName = "CalendarEvent/queryChanges";
+  readonly arguments: CalendarEventQueryChangesRequest;
+
+  constructor(args: CalendarEventQueryChangesRequest) {
     this.arguments = args;
   }
 }

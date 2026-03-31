@@ -1,5 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
-import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
 export interface Calendar {
@@ -120,6 +120,11 @@ export interface CalendarEventQueryResponse {
   position: number;
   total?: number;
 }
+
+export interface CalendarEventQueryChangesRequest
+  extends JmapQueryChangesArgs<CalendarEventFilter, CalendarEventQuerySort> {}
+
+export interface CalendarEventQueryChangesResponse extends JmapQueryChangesResponse {}
 
 export interface CalendarEventGetRequest extends JmapGetArgs<CalendarEventProperty> {
   "#ids"?: {

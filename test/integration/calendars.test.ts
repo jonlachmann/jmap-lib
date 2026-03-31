@@ -7,6 +7,8 @@ import {
   DEFAULT_CALENDAR_EVENT_PROPERTIES,
   JMAP_CALENDARS_PARSE_CAPABILITY,
   JmapCalendars,
+  type CalendarEventQueryRequest,
+  type CalendarEventQueryResponse,
 } from "jmap-lib";
 import {
   getSingleUserIntegrationSkipReason,
@@ -168,11 +170,27 @@ test("integration: queries calendar events with an operator filter when calendar
   }
 });
 
-test("integration: queries seeded calendar events deterministically and destroys them afterwards", { skip }, async (t) => {
+test("integration: queries seeded calendar events and reports query changes deterministically", { skip }, async (t) => {
   const setup = await createCalendarsIntegrationContext(t);
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
   const marker = createIntegrationId("query-events");
+
+  const initialQuery = await context.client.invoke<CalendarEventQueryRequest, CalendarEventQueryResponse>(new CalendarEventQuery({
+    accountId: context.accountId.value,
+    filter: {
+      operator: "AND",
+      conditions: [
+        { inCalendars: [calendar.id] },
+        { text: marker },
+      ],
+    },
+    limit: 10,
+    calculateTotal: true,
+  }));
+
+  assert.deepEqual(initialQuery.ids, []);
+  assert.ok(initialQuery.queryState, "expected initial calendar event query state");
 
   const firstEventId = await calendarsClient.createEvent(
     context.accountId,
@@ -205,11 +223,26 @@ test("integration: queries seeded calendar events deterministically and destroys
     const response = await batch.send();
     const query = response.get<{ ids: string[] }>(queryCallId, "CalendarEvent/query");
     const events = response.get<{ list: Array<{ id: string }> }>(getCallId, "CalendarEvent/get").list;
+    const changes = await calendarsClient.queryEventChanges(context.accountId, {
+      filter: {
+        operator: "AND",
+        conditions: [
+          { inCalendars: [calendar.id] },
+          { text: marker },
+        ],
+      },
+      sinceQueryState: initialQuery.queryState!,
+      calculateTotal: true,
+    });
 
     assert.ok(query.ids.includes(firstEventId), "expected first seeded event in query results");
     assert.ok(query.ids.includes(secondEventId), "expected second seeded event in query results");
     assert.ok(events.some((event) => event.id === firstEventId));
     assert.ok(events.some((event) => event.id === secondEventId));
+    assert.deepEqual(changes.removed, []);
+    assert.ok(changes.added?.some((entry) => entry.id === firstEventId));
+    assert.ok(changes.added?.some((entry) => entry.id === secondEventId));
+    assert.equal(changes.total, query.ids.length);
   } finally {
     await calendarsClient.destroyEvent(context.accountId, firstEventId);
     await calendarsClient.destroyEvent(context.accountId, secondEventId);

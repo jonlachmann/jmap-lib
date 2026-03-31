@@ -8,6 +8,8 @@ import type {
   EmailSubmissionSetRequest,
   EmailProperty,
   EmailQueryFilter,
+  EmailQueryChangesRequest,
+  EmailQueryChangesResponse,
   EmailQueryRequest,
   EmailQueryResponse,
   IdentityGetRequest,
@@ -62,6 +64,17 @@ export class EmailQuery implements JmapMethod<EmailQueryRequest, EmailQueryRespo
       position: options.position,
       calculateTotal: true,
     });
+  }
+}
+
+export class EmailQueryChanges
+  implements JmapMethod<EmailQueryChangesRequest, EmailQueryChangesResponse>
+{
+  readonly methodName = "Email/queryChanges";
+  readonly arguments: EmailQueryChangesRequest;
+
+  constructor(args: EmailQueryChangesRequest) {
+    this.arguments = args;
   }
 }
 

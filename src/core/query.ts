@@ -4,6 +4,11 @@ export interface JmapComparator<Property extends string = string> {
   collation?: string;
 }
 
+export interface JmapQueryAddedItem {
+  id: string;
+  index: number;
+}
+
 export type JmapFilterOperatorName = "AND" | "OR" | "NOT";
 
 export type JmapFilterCondition<Condition> = Condition & {
@@ -29,4 +34,23 @@ export interface JmapQueryArgs<Filter, Sort> {
   anchorOffset?: number;
   limit?: number | null;
   calculateTotal?: boolean;
+}
+
+export interface JmapQueryChangesArgs<Filter, Sort> {
+  accountId: string;
+  filter?: FilterOperatorCondition<Filter> | null;
+  sort?: readonly Sort[] | null;
+  sinceQueryState: string;
+  maxChanges?: number | null;
+  upToId?: string | null;
+  calculateTotal?: boolean;
+}
+
+export interface JmapQueryChangesResponse {
+  accountId: string;
+  oldQueryState: string;
+  newQueryState: string;
+  total?: number;
+  removed: string[];
+  added?: readonly JmapQueryAddedItem[] | null;
 }

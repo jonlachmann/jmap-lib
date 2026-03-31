@@ -6,6 +6,8 @@ import type {
   ContactCardGetRequest,
   ContactCardGetResponse,
   ContactCardQueryRequest,
+  ContactCardQueryChangesRequest,
+  ContactCardQueryChangesResponse,
   ContactCardQueryResponse,
   ContactCardSetRequest,
 } from "./types";
@@ -28,6 +30,17 @@ export class ContactCardQuery implements JmapMethod<ContactCardQueryRequest, Con
   readonly arguments: ContactCardQueryRequest;
 
   constructor(args: ContactCardQueryRequest) {
+    this.arguments = args;
+  }
+}
+
+export class ContactCardQueryChanges
+  implements JmapMethod<ContactCardQueryChangesRequest, ContactCardQueryChangesResponse>
+{
+  readonly methodName = "ContactCard/queryChanges";
+  readonly arguments: ContactCardQueryChangesRequest;
+
+  constructor(args: ContactCardQueryChangesRequest) {
     this.arguments = args;
   }
 }

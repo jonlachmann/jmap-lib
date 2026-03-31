@@ -1,11 +1,13 @@
 import { CORE_CONTACTS_CAPABILITIES } from "../core/capabilities";
 import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
+import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
 import {
   AddressBookGet,
   ContactCardGet,
   ContactCardQuery,
+  ContactCardQueryChanges,
   ContactCardSet,
 } from "./methods";
 import type {
@@ -17,6 +19,10 @@ import type {
   ContactCardGetResponse,
   ContactCardSetRequest,
   ContactCardQueryRequest,
+  ContactCardQueryChangesRequest,
+  ContactCardQueryChangesResponse,
+  ContactCardQueryFilter,
+  ContactCardQuerySort,
 } from "./types";
 
 export class JmapContacts {
@@ -58,6 +64,31 @@ export class JmapContacts {
     const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
     const response = await batch.send();
     return response.get<import("./types").ContactCardGetResponse>(getCallId, "ContactCard/get").list;
+  }
+
+  async queryChanges(
+    accountId: AccountId,
+    options: {
+      filter?: FilterOperatorCondition<ContactCardQueryFilter>;
+      sort?: readonly ContactCardQuerySort[];
+      sinceQueryState: string;
+      maxChanges?: number;
+      upToId?: string;
+      calculateTotal?: boolean;
+    },
+  ): Promise<ContactCardQueryChangesResponse> {
+    return this.client.invoke<ContactCardQueryChangesRequest, ContactCardQueryChangesResponse>(
+      new ContactCardQueryChanges({
+        accountId: accountId.value,
+        filter: options.filter,
+        sort: options.sort,
+        sinceQueryState: options.sinceQueryState,
+        maxChanges: options.maxChanges,
+        upToId: options.upToId,
+        calculateTotal: options.calculateTotal,
+      }),
+      { capabilities: CORE_CONTACTS_CAPABILITIES },
+    );
   }
 
   async create(accountId: AccountId, clientId: string, contact: Partial<ContactCard>): Promise<string> {

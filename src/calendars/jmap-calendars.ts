@@ -7,6 +7,7 @@ import {
   CalendarEventGet,
   CalendarEventParse,
   CalendarEventQuery,
+  CalendarEventQueryChanges,
   CalendarEventSet,
   CalendarGet,
   CalendarSet,
@@ -20,7 +21,10 @@ import type {
   CalendarEventParseRequest,
   CalendarEventParseResponse,
   CalendarEventProperty,
+  CalendarEventQueryChangesRequest,
+  CalendarEventQueryChangesResponse,
   CalendarEventQueryRequest,
+  CalendarEventQuerySort,
   CalendarEventSetRequest,
   CalendarGetRequest,
   CalendarGetResponse,
@@ -155,6 +159,31 @@ export class JmapCalendars {
     );
     const response = await batch.send();
     return response.get<CalendarEventGetResponse>(getCallId, "CalendarEvent/get").list;
+  }
+
+  async queryEventChanges(
+    accountId: AccountId,
+    options: {
+      filter?: FilterOperatorCondition<CalendarEventFilter>;
+      sort?: readonly CalendarEventQuerySort[];
+      sinceQueryState: string;
+      maxChanges?: number;
+      upToId?: string;
+      calculateTotal?: boolean;
+    },
+  ): Promise<CalendarEventQueryChangesResponse> {
+    return this.client.invoke<CalendarEventQueryChangesRequest, CalendarEventQueryChangesResponse>(
+      new CalendarEventQueryChanges({
+        accountId: accountId.value,
+        filter: options.filter,
+        sort: options.sort,
+        sinceQueryState: options.sinceQueryState,
+        maxChanges: options.maxChanges,
+        upToId: options.upToId,
+        calculateTotal: options.calculateTotal,
+      }),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
   }
 
   async getEvent(

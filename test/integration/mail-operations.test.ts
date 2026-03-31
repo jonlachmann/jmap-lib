@@ -14,7 +14,7 @@ import {
 import { createIntegrationClientContext } from "./helpers/client.js";
 import { hasServerCapability } from "./helpers/capabilities.js";
 import { createIntegrationId } from "./helpers/ids.js";
-import { createMailIntegrationContext, requireMailboxByRole } from "./helpers/mail.js";
+import { createMailIntegrationContext, requireMailboxByRole, resolveDraftAddress } from "./helpers/mail.js";
 import { uploadIntegrationBlob } from "./helpers/upload.js";
 
 const skip = getSingleUserIntegrationSkipReason();
@@ -294,19 +294,6 @@ function requireMoveTargetMailbox(
   const fallback = mailboxes.find((mailbox) => mailbox.id !== sourceMailboxId);
   assert.ok(fallback, "expected a second mailbox for move tests");
   return fallback;
-}
-
-async function resolveDraftAddress(
-  context: Awaited<ReturnType<typeof createIntegrationClientContext>>,
-): Promise<string> {
-  if (hasServerCapability(context.session, JMAP_SUBMISSION_CAPABILITY)) {
-    const identities = await new JmapIdentities(context.client).list(context.accountId);
-    if (identities[0]?.email) {
-      return identities[0].email;
-    }
-  }
-
-  return context.session.username ?? context.user.username;
 }
 
 async function safeDestroy(

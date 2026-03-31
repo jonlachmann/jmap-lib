@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   ContactCardGet,
   ContactCardQuery,
+  type ContactCardQueryRequest,
+  type ContactCardQueryResponse,
 } from "jmap-lib";
 import {
   getSingleUserIntegrationSkipReason,
@@ -81,11 +83,27 @@ test("integration: queries contacts with an operator filter when contacts is sup
   }
 });
 
-test("integration: queries seeded contacts deterministically and destroys them afterwards", { skip }, async (t) => {
+test("integration: queries seeded contacts and reports query changes deterministically", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
   const { context, contacts, addressBook } = setup;
   const marker = createIntegrationId("query-contacts");
+
+  const initialQuery = await context.client.invoke<ContactCardQueryRequest, ContactCardQueryResponse>(new ContactCardQuery({
+    accountId: context.accountId.value,
+    filter: {
+      operator: "AND",
+      conditions: [
+        { inAddressBook: addressBook.id },
+        { text: marker },
+      ],
+    },
+    limit: 10,
+    calculateTotal: true,
+  }));
+
+  assert.deepEqual(initialQuery.ids, []);
+  assert.ok(initialQuery.queryState, "expected initial contact query state");
 
   const firstContactId = await contacts.create(
     context.accountId,
@@ -116,11 +134,26 @@ test("integration: queries seeded contacts deterministically and destroys them a
     const response = await batch.send();
     const query = response.get<{ ids: string[] }>(queryCallId, "ContactCard/query");
     const contactCards = response.get<{ list: Array<{ id: string }> }>(getCallId, "ContactCard/get").list;
+    const changes = await contacts.queryChanges(context.accountId, {
+      filter: {
+        operator: "AND",
+        conditions: [
+          { inAddressBook: addressBook.id },
+          { text: marker },
+        ],
+      },
+      sinceQueryState: initialQuery.queryState!,
+      calculateTotal: true,
+    });
 
     assert.ok(query.ids.includes(firstContactId), "expected first seeded contact in query results");
     assert.ok(query.ids.includes(secondContactId), "expected second seeded contact in query results");
     assert.ok(contactCards.some((contact) => contact.id === firstContactId));
     assert.ok(contactCards.some((contact) => contact.id === secondContactId));
+    assert.deepEqual(changes.removed, []);
+    assert.ok(changes.added?.some((entry) => entry.id === firstContactId));
+    assert.ok(changes.added?.some((entry) => entry.id === secondContactId));
+    assert.equal(changes.total, query.ids.length);
   } finally {
     await contacts.destroy(context.accountId, firstContactId);
     await contacts.destroy(context.accountId, secondContactId);

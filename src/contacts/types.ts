@@ -1,5 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
-import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
 export interface ContactNameComponent {
@@ -104,6 +104,11 @@ export interface ContactCardQueryResponse {
   position: number;
   total?: number;
 }
+
+export interface ContactCardQueryChangesRequest
+  extends JmapQueryChangesArgs<ContactCardQueryFilter, ContactCardQuerySort> {}
+
+export interface ContactCardQueryChangesResponse extends JmapQueryChangesResponse {}
 
 export type ContactCardProperty =
   | "id"

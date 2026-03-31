@@ -1,5 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
-import type { JmapComparator, JmapQueryArgs } from "../core/query";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
 export type JmapMailboxRole =
@@ -80,6 +80,10 @@ export interface EmailQueryResponse {
   total?: number;
   limit?: number;
 }
+
+export interface EmailQueryChangesRequest extends JmapQueryChangesArgs<EmailQueryFilter, EmailQuerySort> {}
+
+export interface EmailQueryChangesResponse extends JmapQueryChangesResponse {}
 
 export interface JmapEmailAddress {
   name?: string;
