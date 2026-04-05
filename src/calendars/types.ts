@@ -1,4 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
+import type { JmapPatchObject } from "../core/patch";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
@@ -108,7 +109,22 @@ export interface CalendarGetResponse {
   list: Calendar[];
 }
 
-export interface CalendarSetRequest extends JmapSetArgs<Partial<Calendar>, Partial<Calendar>> {}
+export interface CalendarMutable {
+  name?: string;
+  description?: string | null;
+  color?: string | null;
+  sortOrder?: number;
+  isSubscribed?: boolean;
+  isVisible?: boolean;
+  isDefault?: boolean;
+  timeZone?: string | null;
+}
+
+export interface CalendarCreate extends CalendarMutable {}
+
+export type CalendarUpdate = JmapPatchObject<CalendarMutable>;
+
+export interface CalendarSetRequest extends JmapSetArgs<CalendarCreate, CalendarUpdate> {}
 
 export interface CalendarEventQueryRequest
   extends JmapQueryArgs<CalendarEventFilter, CalendarEventQuerySort> {}
@@ -141,7 +157,39 @@ export interface CalendarEventGetResponse {
   notFound?: string[];
 }
 
-export interface CalendarEventSetRequest extends JmapSetArgs<Partial<CalendarEvent>, Partial<CalendarEvent>> {
+export interface CalendarEventMutable {
+  calendarIds?: Record<string, boolean>;
+  uid?: string;
+  title?: string;
+  description?: string;
+  descriptionContentType?: string;
+  start?: string;
+  duration?: string;
+  timeZone?: string | null;
+  showWithoutTime?: boolean;
+  status?: "tentative" | "confirmed" | "cancelled";
+  freeBusyStatus?: "free" | "busy";
+  privacy?: "public" | "private" | "secret";
+  color?: string | null;
+  keywords?: Record<string, boolean> | null;
+  locations?: Record<string, unknown> | null;
+  virtualLocations?: Record<string, unknown> | null;
+  links?: Record<string, unknown> | null;
+  participants?: Record<string, unknown> | null;
+  organizerCalendarAddress?: string | null;
+  alerts?: Record<string, unknown> | null;
+  recurrenceRules?: unknown[] | null;
+  excludedRecurrenceRules?: unknown[] | null;
+  recurrenceOverrides?: Record<string, unknown> | null;
+  recurrenceId?: string | null;
+  isOrigin?: boolean;
+}
+
+export interface CalendarEventCreate extends CalendarEventMutable {}
+
+export type CalendarEventUpdate = JmapPatchObject<CalendarEventMutable>;
+
+export interface CalendarEventSetRequest extends JmapSetArgs<CalendarEventCreate, CalendarEventUpdate> {
   sendSchedulingMessages?: boolean;
 }
 

@@ -1,5 +1,6 @@
 import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
 import type { JmapGetArgs } from "../core/get";
+import type { JmapPatchObject } from "../core/patch";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
@@ -189,7 +190,7 @@ export interface JmapEmail {
   size?: number;
 }
 
-export interface EmailCreate {
+export interface EmailMutable {
   mailboxIds?: Record<string, boolean>;
   keywords?: Record<JmapKeyword, boolean>;
   from?: JmapEmailAddress[];
@@ -204,30 +205,9 @@ export interface EmailCreate {
   attachments?: EmailAttachment[];
 }
 
-export interface EmailPatchObject {
-  mailboxIds?: Record<string, boolean> | null;
-  keywords?: Record<JmapKeyword, boolean> | null;
-  from?: JmapEmailAddress[] | null;
-  to?: JmapEmailAddress[] | null;
-  cc?: JmapEmailAddress[] | null;
-  bcc?: JmapEmailAddress[] | null;
-  replyTo?: JmapEmailAddress[] | null;
-  subject?: string | null;
-  bodyValues?: Record<string, EmailBodyValue> | null;
-  textBody?: EmailBodyPartReference[] | null;
-  htmlBody?: EmailBodyPartReference[] | null;
-  attachments?: EmailAttachment[] | null;
-}
+export interface EmailCreate extends EmailMutable {}
 
-export type EmailKeywordPatch = {
-  [KeywordPath in `keywords/${string}`]?: boolean | null;
-};
-
-export type EmailMailboxPatch = {
-  [MailboxPath in `mailboxIds/${string}`]?: boolean | null;
-};
-
-export type EmailUpdate = EmailPatchObject & EmailKeywordPatch & EmailMailboxPatch;
+export type EmailUpdate = JmapPatchObject<EmailMutable>;
 
 export interface EmailSetRequest extends JmapSetArgs<EmailCreate, EmailUpdate> {}
 
@@ -318,7 +298,20 @@ export interface IdentityChangesRequest extends JmapChangesArgs {}
 
 export interface IdentityChangesResponse extends JmapChangesResponse {}
 
-export interface IdentitySetRequest extends JmapSetArgs<Partial<Identity>, Partial<Identity>> {}
+export interface IdentityMutable {
+  name?: string;
+  email?: string;
+  replyTo?: JmapEmailAddress[];
+  bcc?: JmapEmailAddress[];
+  textSignature?: string;
+  htmlSignature?: string;
+}
+
+export interface IdentityCreate extends IdentityMutable {}
+
+export type IdentityUpdate = JmapPatchObject<IdentityMutable>;
+
+export interface IdentitySetRequest extends JmapSetArgs<IdentityCreate, IdentityUpdate> {}
 
 export type IdReference<MethodName extends string = string> = {
   resultOf: string;

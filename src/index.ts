@@ -7,6 +7,12 @@ export type { JmapChangesArgs, JmapChangesResponse } from "./core/changes";
 export type { JmapGetArgs } from "./core/get";
 export type { JmapMethod } from "./core/method";
 export type {
+  JmapNestedPatchPath,
+  JmapPatchObject,
+  JmapPatchPath,
+  JmapPatchValueAtPath,
+} from "./core/patch";
+export type {
   FilterOperatorCondition,
   JmapComparator,
   JmapFilterCondition,

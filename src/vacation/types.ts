@@ -1,4 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
+import type { JmapPatchObject } from "../core/patch";
 import type { JmapSetArgs } from "../core/set";
 
 export interface VacationResponse {
@@ -28,6 +29,17 @@ export interface VacationResponseGetResponse {
   list: VacationResponse[];
 }
 
-export interface VacationResponseSetRequest extends JmapSetArgs<never, Partial<VacationResponse>> {
-  update: Record<string, Partial<VacationResponse>>;
+export interface VacationResponseMutable {
+  isEnabled?: boolean;
+  fromDate?: string | null;
+  toDate?: string | null;
+  subject?: string;
+  textBody?: string;
+  htmlBody?: string | null;
+}
+
+export type VacationResponseUpdate = JmapPatchObject<VacationResponseMutable>;
+
+export interface VacationResponseSetRequest extends JmapSetArgs<never, VacationResponseUpdate> {
+  update: Record<string, VacationResponseUpdate>;
 }

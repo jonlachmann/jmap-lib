@@ -1,4 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
+import type { JmapPatchObject } from "../core/patch";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
@@ -139,4 +140,20 @@ export interface ContactCardGetResponse {
   notFound?: string[];
 }
 
-export interface ContactCardSetRequest extends JmapSetArgs<Partial<ContactCard>, Partial<ContactCard>> {}
+export interface ContactCardMutable {
+  uid?: string;
+  addressBookIds?: Record<string, boolean>;
+  kind?: "individual" | "group" | "org";
+  name?: ContactName;
+  emails?: Record<string, ContactEmail>;
+  phones?: Record<string, ContactPhone>;
+  organizations?: Record<string, ContactOrganization>;
+  addresses?: Record<string, ContactAddress>;
+  members?: Record<string, boolean>;
+}
+
+export interface ContactCardCreate extends ContactCardMutable {}
+
+export type ContactCardUpdate = JmapPatchObject<ContactCardMutable>;
+
+export interface ContactCardSetRequest extends JmapSetArgs<ContactCardCreate, ContactCardUpdate> {}

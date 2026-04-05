@@ -1,4 +1,5 @@
 import type { JmapGetArgs } from "../core/get";
+import type { JmapPatchObject } from "../core/patch";
 import type { JmapSetArgs } from "../core/set";
 
 export interface SieveScript {
@@ -18,10 +19,19 @@ export interface SieveScriptGetResponse {
   list: SieveScript[];
 }
 
-export interface SieveScriptSetRequest extends JmapSetArgs<
-  { name: string; blobId: string },
-  { blobId: string }
-> {
+export interface SieveScriptMutable {
+  name?: string;
+  blobId?: string;
+}
+
+export interface SieveScriptCreate extends SieveScriptMutable {
+  name: string;
+  blobId: string;
+}
+
+export type SieveScriptUpdate = JmapPatchObject<SieveScriptMutable>;
+
+export interface SieveScriptSetRequest extends JmapSetArgs<SieveScriptCreate, SieveScriptUpdate> {
   onSuccessActivateScript?: string | null;
 }
 
