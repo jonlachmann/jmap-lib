@@ -2,10 +2,14 @@ import { AccountId, CallId } from "../core/ids";
 import type { JmapMethod } from "../core/method";
 import { MailboxId } from "../core/ids";
 import type {
+  EmailChangesRequest,
+  EmailChangesResponse,
   EmailGetRequest,
   EmailGetResponse,
   EmailSetRequest,
   EmailSubmissionSetRequest,
+  IdentityChangesRequest,
+  IdentityChangesResponse,
   EmailProperty,
   EmailQueryFilter,
   EmailQueryChangesRequest,
@@ -15,9 +19,18 @@ import type {
   IdentityGetRequest,
   IdentityGetResponse,
   IdentitySetRequest,
+  MailboxChangesRequest,
+  MailboxChangesResponse,
+  MailboxQueryChangesRequest,
+  MailboxQueryChangesResponse,
+  MailboxQueryRequest,
+  MailboxQueryResponse,
+  MailboxSetRequest,
   MailboxProperty,
   MailboxGetRequest,
   MailboxGetResponse,
+  ThreadChangesRequest,
+  ThreadChangesResponse,
   ThreadGetRequest,
   ThreadGetResponse,
 } from "./types";
@@ -35,6 +48,44 @@ export class MailboxGet implements JmapMethod<MailboxGetRequest, MailboxGetRespo
       accountId: accountId.value,
       properties,
     });
+  }
+}
+
+export class MailboxChanges implements JmapMethod<MailboxChangesRequest, MailboxChangesResponse> {
+  readonly methodName = "Mailbox/changes";
+  readonly arguments: MailboxChangesRequest;
+
+  constructor(args: MailboxChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class MailboxQuery implements JmapMethod<MailboxQueryRequest, MailboxQueryResponse> {
+  readonly methodName = "Mailbox/query";
+  readonly arguments: MailboxQueryRequest;
+
+  constructor(args: MailboxQueryRequest) {
+    this.arguments = args;
+  }
+}
+
+export class MailboxQueryChanges
+  implements JmapMethod<MailboxQueryChangesRequest, MailboxQueryChangesResponse>
+{
+  readonly methodName = "Mailbox/queryChanges";
+  readonly arguments: MailboxQueryChangesRequest;
+
+  constructor(args: MailboxQueryChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class MailboxSet implements JmapMethod<MailboxSetRequest, import("../core/set").JmapSetResponse> {
+  readonly methodName = "Mailbox/set";
+  readonly arguments: MailboxSetRequest;
+
+  constructor(args: MailboxSetRequest) {
+    this.arguments = args;
   }
 }
 
@@ -74,6 +125,15 @@ export class EmailQueryChanges
   readonly arguments: EmailQueryChangesRequest;
 
   constructor(args: EmailQueryChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class EmailChanges implements JmapMethod<EmailChangesRequest, EmailChangesResponse> {
+  readonly methodName = "Email/changes";
+  readonly arguments: EmailChangesRequest;
+
+  constructor(args: EmailChangesRequest) {
     this.arguments = args;
   }
 }
@@ -147,6 +207,15 @@ export class ThreadGet implements JmapMethod<ThreadGetRequest, ThreadGetResponse
   }
 }
 
+export class ThreadChanges implements JmapMethod<ThreadChangesRequest, ThreadChangesResponse> {
+  readonly methodName = "Thread/changes";
+  readonly arguments: ThreadChangesRequest;
+
+  constructor(args: ThreadChangesRequest) {
+    this.arguments = args;
+  }
+}
+
 export class IdentityGet implements JmapMethod<IdentityGetRequest, IdentityGetResponse> {
   readonly methodName = "Identity/get";
   readonly arguments: IdentityGetRequest;
@@ -169,6 +238,17 @@ export class IdentitySet
   readonly arguments: IdentitySetRequest;
 
   constructor(args: IdentitySetRequest) {
+    this.arguments = args;
+  }
+}
+
+export class IdentityChanges
+  implements JmapMethod<IdentityChangesRequest, IdentityChangesResponse>
+{
+  readonly methodName = "Identity/changes";
+  readonly arguments: IdentityChangesRequest;
+
+  constructor(args: IdentityChangesRequest) {
     this.arguments = args;
   }
 }

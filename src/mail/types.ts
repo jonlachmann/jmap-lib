@@ -1,3 +1,4 @@
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
 import type { JmapGetArgs } from "../core/get";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
@@ -50,6 +51,43 @@ export interface MailboxGetResponse {
   notFound?: string[];
 }
 
+export interface MailboxChangesRequest extends JmapChangesArgs {}
+
+export interface MailboxChangesResponse extends JmapChangesResponse {
+  updatedProperties?: readonly MailboxProperty[] | null;
+}
+
+export interface MailboxQueryFilter {
+  parentId?: string | null;
+  name?: string;
+  role?: JmapMailboxRole | null;
+  hasAnyRole?: boolean;
+  isSubscribed?: boolean;
+}
+
+export type MailboxQuerySortProperty = "sortOrder" | "name";
+
+export interface MailboxQuerySort extends JmapComparator<MailboxQuerySortProperty> {}
+
+export interface MailboxQueryRequest extends JmapQueryArgs<MailboxQueryFilter, MailboxQuerySort> {
+  sortAsTree?: boolean;
+  filterAsTree?: boolean;
+}
+
+export interface MailboxQueryResponse {
+  accountId: string;
+  queryState?: string;
+  canCalculateChanges?: boolean;
+  position: number;
+  ids: string[];
+  total?: number;
+  limit?: number;
+}
+
+export interface MailboxQueryChangesRequest extends JmapQueryChangesArgs<MailboxQueryFilter, MailboxQuerySort> {}
+
+export interface MailboxQueryChangesResponse extends JmapQueryChangesResponse {}
+
 export interface EmailQueryFilter {
   [key: string]: unknown;
   inMailbox?: string;
@@ -85,10 +123,36 @@ export interface EmailQueryChangesRequest extends JmapQueryChangesArgs<EmailQuer
 
 export interface EmailQueryChangesResponse extends JmapQueryChangesResponse {}
 
+export interface EmailChangesRequest extends JmapChangesArgs {}
+
+export interface EmailChangesResponse extends JmapChangesResponse {}
+
 export interface JmapEmailAddress {
   name?: string;
   email: string;
 }
+
+export interface EmailBodyValue {
+  value: string;
+  charset?: string;
+  isEncodingProblem?: boolean;
+  isTruncated?: boolean;
+}
+
+export interface EmailBodyPartReference {
+  partId: string;
+  type?: string;
+}
+
+export interface EmailAttachment {
+  blobId: string;
+  type: string;
+  name?: string;
+  disposition?: "attachment" | "inline";
+  cid?: string;
+}
+
+export type JmapKeyword = string & {};
 
 export type EmailProperty =
   | "id"
@@ -111,7 +175,7 @@ export interface JmapEmail {
   id: string;
   threadId: string;
   mailboxIds: Record<string, boolean>;
-  keywords?: Record<string, boolean>;
+  keywords?: Record<JmapKeyword, boolean>;
   receivedAt?: string;
   sentAt?: string;
   from?: JmapEmailAddress[];
@@ -125,7 +189,59 @@ export interface JmapEmail {
   size?: number;
 }
 
-export interface EmailSetRequest extends JmapSetArgs<Record<string, unknown>, Record<string, unknown>> {}
+export interface EmailCreate {
+  mailboxIds?: Record<string, boolean>;
+  keywords?: Record<JmapKeyword, boolean>;
+  from?: JmapEmailAddress[];
+  to?: JmapEmailAddress[];
+  cc?: JmapEmailAddress[];
+  bcc?: JmapEmailAddress[];
+  replyTo?: JmapEmailAddress[];
+  subject?: string;
+  bodyValues?: Record<string, EmailBodyValue>;
+  textBody?: EmailBodyPartReference[];
+  htmlBody?: EmailBodyPartReference[];
+  attachments?: EmailAttachment[];
+}
+
+export interface EmailPatchObject {
+  mailboxIds?: Record<string, boolean> | null;
+  keywords?: Record<JmapKeyword, boolean> | null;
+  from?: JmapEmailAddress[] | null;
+  to?: JmapEmailAddress[] | null;
+  cc?: JmapEmailAddress[] | null;
+  bcc?: JmapEmailAddress[] | null;
+  replyTo?: JmapEmailAddress[] | null;
+  subject?: string | null;
+  bodyValues?: Record<string, EmailBodyValue> | null;
+  textBody?: EmailBodyPartReference[] | null;
+  htmlBody?: EmailBodyPartReference[] | null;
+  attachments?: EmailAttachment[] | null;
+}
+
+export type EmailKeywordPatch = {
+  [KeywordPath in `keywords/${string}`]?: boolean | null;
+};
+
+export type EmailMailboxPatch = {
+  [MailboxPath in `mailboxIds/${string}`]?: boolean | null;
+};
+
+export type EmailUpdate = EmailPatchObject & EmailKeywordPatch & EmailMailboxPatch;
+
+export interface EmailSetRequest extends JmapSetArgs<EmailCreate, EmailUpdate> {}
+
+export interface MailboxSetEntry {
+  name?: string;
+  parentId?: string | null;
+  role?: JmapMailboxRole | null;
+  sortOrder?: number;
+  isSubscribed?: boolean;
+}
+
+export interface MailboxSetRequest extends JmapSetArgs<MailboxSetEntry, MailboxSetEntry> {
+  onDestroyRemoveEmails?: boolean;
+}
 
 export interface EmailSubmission {
   id: string;
@@ -164,6 +280,10 @@ export interface ThreadGetResponse {
   notFound?: string[];
 }
 
+export interface ThreadChangesRequest extends JmapChangesArgs {}
+
+export interface ThreadChangesResponse extends JmapChangesResponse {}
+
 export interface Identity {
   id: string;
   name: string;
@@ -193,6 +313,10 @@ export interface IdentityGetResponse {
   list: Identity[];
   notFound?: string[];
 }
+
+export interface IdentityChangesRequest extends JmapChangesArgs {}
+
+export interface IdentityChangesResponse extends JmapChangesResponse {}
 
 export interface IdentitySetRequest extends JmapSetArgs<Partial<Identity>, Partial<Identity>> {}
 

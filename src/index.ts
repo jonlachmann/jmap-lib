@@ -3,6 +3,7 @@ export { JmapBatch, JmapClient, JmapHttpError } from "./core/client";
 export { CoreEcho } from "./core/core-methods";
 export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods";
 export { AccountId, CallId, MailboxId } from "./core/ids";
+export type { JmapChangesArgs, JmapChangesResponse } from "./core/changes";
 export type { JmapGetArgs } from "./core/get";
 export type { JmapMethod } from "./core/method";
 export type {
@@ -26,14 +27,21 @@ export {
 } from "./core/session";
 export type { JmapSession, JmapSessionAccount } from "./core/session";
 export {
+  EmailChanges,
   EmailGet,
   EmailQuery,
   EmailQueryChanges,
   EmailSet,
   EmailSubmissionSet,
+  IdentityChanges,
   IdentityGet,
   IdentitySet,
+  MailboxChanges,
   MailboxGet,
+  MailboxQuery,
+  MailboxQueryChanges,
+  MailboxSet,
+  ThreadChanges,
   ThreadGet,
 } from "./mail/methods";
 export { JmapIdentities } from "./mail/jmap-identities";

@@ -1,23 +1,50 @@
 import { AccountId, MailboxId } from "../core/ids";
 import { JmapClient } from "../core/client";
+import type { JmapChangesResponse } from "../core/changes";
 import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
-import { EmailGet, EmailQuery, EmailQueryChanges, EmailSet, EmailSubmissionSet, MailboxGet, ThreadGet } from "./methods";
+import {
+  EmailChanges,
+  EmailGet,
+  EmailQuery,
+  EmailQueryChanges,
+  EmailSet,
+  EmailSubmissionSet,
+  MailboxChanges,
+  MailboxGet,
+  MailboxQuery,
+  MailboxQueryChanges,
+  MailboxSet,
+  ThreadChanges,
+  ThreadGet,
+} from "./methods";
 import type {
+  EmailChangesRequest,
   EmailGetResponse,
   EmailGetRequest,
   EmailSetRequest,
   EmailSubmissionSetRequest,
   EmailProperty,
+  MailboxChangesRequest,
+  MailboxQueryChangesRequest,
+  MailboxQueryChangesResponse,
+  MailboxQueryFilter,
+  MailboxQueryRequest,
+  MailboxQueryResponse,
+  MailboxQuerySort,
+  MailboxSetEntry,
+  MailboxSetRequest,
   EmailQueryChangesRequest,
   EmailQueryChangesResponse,
   EmailQueryRequest,
   EmailQueryResponse,
+  EmailUpdate,
   JmapEmail,
   JmapEmailAddress,
   EmailQueryFilter,
   EmailQuerySort,
   Thread,
+  ThreadChangesRequest,
   ThreadGetRequest,
   ThreadGetResponse,
   MailboxGetRequest,
@@ -58,6 +85,20 @@ export class JmapMail {
     return this.client.invoke<MailboxGetRequest, MailboxGetResponse>(MailboxGet.all(accountId));
   }
 
+  async getMailboxChanges(
+    accountId: AccountId,
+    sinceState: string,
+    options?: { maxChanges?: number },
+  ): Promise<JmapChangesResponse> {
+    return this.client.invoke<MailboxChangesRequest, JmapChangesResponse>(
+      new MailboxChanges({
+        accountId: accountId.value,
+        sinceState,
+        maxChanges: options?.maxChanges,
+      }),
+    );
+  }
+
   async getAllMailboxes(options: { accountIds: AccountId[] }): Promise<GetAllMailboxesResult> {
     type MailboxSuccess = { accountId: AccountId; response: MailboxGetResponse };
 
@@ -86,6 +127,114 @@ export class JmapMail {
     });
 
     return { results, failures };
+  }
+
+  async queryMailboxes(
+    accountId: AccountId,
+    options?: {
+      filter?: FilterOperatorCondition<MailboxQueryFilter>;
+      sort?: readonly MailboxQuerySort[];
+      position?: number;
+      anchor?: string;
+      anchorOffset?: number;
+      limit?: number;
+      calculateTotal?: boolean;
+      sortAsTree?: boolean;
+      filterAsTree?: boolean;
+    },
+  ): Promise<MailboxQueryResponse> {
+    return this.client.invoke<MailboxQueryRequest, MailboxQueryResponse>(
+      new MailboxQuery({
+        accountId: accountId.value,
+        filter: options?.filter,
+        sort: options?.sort,
+        position: options?.position,
+        anchor: options?.anchor,
+        anchorOffset: options?.anchorOffset,
+        limit: options?.limit,
+        calculateTotal: options?.calculateTotal,
+        sortAsTree: options?.sortAsTree,
+        filterAsTree: options?.filterAsTree,
+      }),
+    );
+  }
+
+  async queryMailboxChanges(
+    accountId: AccountId,
+    options: {
+      filter?: FilterOperatorCondition<MailboxQueryFilter>;
+      sort?: readonly MailboxQuerySort[];
+      sinceQueryState: string;
+      maxChanges?: number;
+      upToId?: string;
+      calculateTotal?: boolean;
+    },
+  ): Promise<MailboxQueryChangesResponse> {
+    return this.client.invoke<MailboxQueryChangesRequest, MailboxQueryChangesResponse>(
+      new MailboxQueryChanges({
+        accountId: accountId.value,
+        filter: options.filter,
+        sort: options.sort,
+        sinceQueryState: options.sinceQueryState,
+        maxChanges: options.maxChanges,
+        upToId: options.upToId,
+        calculateTotal: options.calculateTotal,
+      }),
+    );
+  }
+
+  async createMailbox(accountId: AccountId, clientId: string, mailbox: MailboxSetEntry): Promise<string> {
+    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+      new MailboxSet({
+        accountId: accountId.value,
+        create: { [clientId]: mailbox },
+      }),
+    );
+
+    const error = getSetError(response, "notCreated", clientId);
+    if (error) {
+      throw new Error(error.description || "Failed to create mailbox");
+    }
+
+    const createdId = response.created?.[clientId]?.id;
+    if (!createdId) {
+      throw new Error("Mailbox/set create did not return an id");
+    }
+
+    return createdId;
+  }
+
+  async updateMailbox(accountId: AccountId, mailboxId: string, updates: MailboxSetEntry): Promise<void> {
+    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+      new MailboxSet({
+        accountId: accountId.value,
+        update: { [mailboxId]: updates },
+      }),
+    );
+
+    const error = getSetError(response, "notUpdated", mailboxId);
+    if (error) {
+      throw new Error(error.description || "Failed to update mailbox");
+    }
+  }
+
+  async destroyMailbox(
+    accountId: AccountId,
+    mailboxId: string,
+    options?: { onDestroyRemoveEmails?: boolean },
+  ): Promise<void> {
+    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+      new MailboxSet({
+        accountId: accountId.value,
+        destroy: [mailboxId],
+        onDestroyRemoveEmails: options?.onDestroyRemoveEmails,
+      }),
+    );
+
+    const error = getSetError(response, "notDestroyed", mailboxId);
+    if (error) {
+      throw new Error(error.description || "Failed to destroy mailbox");
+    }
   }
 
   async listPage(options: ListPageOptions): Promise<ListPageResult> {
@@ -151,6 +300,20 @@ export class JmapMail {
     );
   }
 
+  async getEmailChanges(
+    accountId: AccountId,
+    sinceState: string,
+    options?: { maxChanges?: number },
+  ): Promise<JmapChangesResponse> {
+    return this.client.invoke<EmailChangesRequest, JmapChangesResponse>(
+      new EmailChanges({
+        accountId: accountId.value,
+        sinceState,
+        maxChanges: options?.maxChanges,
+      }),
+    );
+  }
+
   async search(options: Omit<QueryPageOptions, "filter"> & { text: string; mailboxId?: MailboxId }): Promise<ListPageResult> {
     const filter: EmailQueryFilter = { text: options.text };
     if (options.mailboxId) {
@@ -182,6 +345,20 @@ export class JmapMail {
       ThreadGet.byIds(accountId, [threadId]),
     );
     return response.list[0];
+  }
+
+  async getThreadChanges(
+    accountId: AccountId,
+    sinceState: string,
+    options?: { maxChanges?: number },
+  ): Promise<JmapChangesResponse> {
+    return this.client.invoke<ThreadChangesRequest, JmapChangesResponse>(
+      new ThreadChanges({
+        accountId: accountId.value,
+        sinceState,
+        maxChanges: options?.maxChanges,
+      }),
+    );
   }
 
   async getThreadEmails(
@@ -376,7 +553,7 @@ export class JmapMail {
 
   private async patchEmails(
     accountId: AccountId,
-    updates: Record<string, Record<string, unknown>>,
+    updates: Record<string, EmailUpdate>,
   ): Promise<void> {
     const response = await this.client.invoke<EmailSetRequest, import("../core/set").JmapSetResponse>(
       new EmailSet({

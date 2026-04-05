@@ -7,6 +7,10 @@ import {
   EmailGet,
   JmapClient,
   JmapMail,
+  MailboxChanges,
+  MailboxQuery,
+  MailboxQueryChanges,
+  MailboxSet,
 } from "jmap-lib";
 
 test("EmailGet.byQueryResult encapsulates #ids references", () => {
@@ -150,4 +154,43 @@ test("JmapMail.listPage falls back to limit-based hasMore when total is absent",
   });
 
   assert.equal(result.hasMore, true);
+});
+
+test("Mailbox/query, Mailbox/queryChanges, and Mailbox/set preserve typed mailbox arguments", () => {
+  const query = new MailboxQuery({
+    accountId: "acc",
+    filter: { name: "Projects" },
+    sort: [{ property: "name", isAscending: true }],
+    sortAsTree: true,
+    filterAsTree: true,
+  });
+  const queryChanges = new MailboxQueryChanges({
+    accountId: "acc",
+    filter: { role: "inbox" },
+    sort: [{ property: "sortOrder", isAscending: true }],
+    sinceQueryState: "q1",
+  });
+  const set = new MailboxSet({
+    accountId: "acc",
+    create: {
+      mailbox: {
+        name: "Projects",
+        isSubscribed: true,
+      },
+    },
+    onDestroyRemoveEmails: false,
+  });
+  const changes = new MailboxChanges({
+    accountId: "acc",
+    sinceState: "m1",
+  });
+
+  assert.equal(query.methodName, "Mailbox/query");
+  assert.equal(query.arguments.sortAsTree, true);
+  assert.equal(query.arguments.filterAsTree, true);
+  assert.equal(queryChanges.methodName, "Mailbox/queryChanges");
+  assert.equal(queryChanges.arguments.sinceQueryState, "q1");
+  assert.equal(set.methodName, "Mailbox/set");
+  assert.equal(set.arguments.create?.mailbox?.name, "Projects");
+  assert.equal(changes.methodName, "Mailbox/changes");
 });
