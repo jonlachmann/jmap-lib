@@ -77,7 +77,6 @@ test("CalendarEventUpdate supports nested patch paths over mutable event data", 
 test("IdentityUpdate and VacationResponseUpdate support patch-object ergonomics", () => {
   const identity: IdentityUpdate = {
     textSignature: "Best regards",
-    "replyTo/0/email": "reply@example.test",
   };
   const vacation: VacationResponseUpdate = {
     isEnabled: true,
@@ -85,7 +84,6 @@ test("IdentityUpdate and VacationResponseUpdate support patch-object ergonomics"
   };
 
   assert.equal(identity.textSignature, "Best regards");
-  assert.equal(identity["replyTo/0/email"], "reply@example.test");
   assert.equal(vacation.isEnabled, true);
   assert.equal(vacation.htmlBody, "<p>Out of office</p>");
 });

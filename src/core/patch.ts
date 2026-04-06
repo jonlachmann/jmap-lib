@@ -1,8 +1,8 @@
 type StringKeyOf<T> = Extract<keyof T, string>;
 
 export type JmapPatchPath<T> =
-  T extends readonly (infer Item)[]
-    ? `${number}` | `${number}/${JmapPatchPath<Item>}`
+  T extends readonly unknown[]
+    ? never
     : T extends object
       ? {
           [Key in StringKeyOf<T>]:
@@ -28,23 +28,15 @@ export type JmapNestedPatchPath<T> =
 export type JmapPatchValueAtPath<T, Path extends string> =
   Path extends `${infer Head}/${infer Tail}`
     ? Head extends keyof T
-      ? NonNullable<T[Head]> extends readonly (infer Item)[]
-        ? Tail extends `${number}`
-          ? Item
-          : Tail extends `${number}/${infer Rest}`
-            ? JmapPatchValueAtPath<Item, Rest>
-            : never
+      ? NonNullable<T[Head]> extends readonly unknown[]
+        ? never
         : NonNullable<T[Head]> extends object
           ? JmapPatchValueAtPath<NonNullable<T[Head]>, Tail>
           : never
       : never
     : Path extends keyof T
       ? NonNullable<T[Path]>
-      : T extends readonly (infer Item)[]
-        ? Path extends `${number}`
-          ? Item
-          : never
-        : never;
+      : never;
 
 export type JmapPatchObject<T extends object> =
   Partial<T> & {

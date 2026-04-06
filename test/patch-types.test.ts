@@ -12,19 +12,17 @@ import type {
 test("JmapNestedPatchPath generates nested patch keys from a known shape", () => {
   const keywordPath: JmapNestedPatchPath<EmailMutable> = "keywords/$seen";
   const mailboxPath: JmapNestedPatchPath<EmailMutable> = "mailboxIds/archive";
-  const addressPath: JmapNestedPatchPath<EmailMutable> = "from/0/email";
 
   assert.equal(keywordPath, "keywords/$seen");
   assert.equal(mailboxPath, "mailboxIds/archive");
-  assert.equal(addressPath, "from/0/email");
 });
 
 test("JmapPatchValueAtPath resolves the value type at a nested patch key", () => {
   const keywordValue: JmapPatchValueAtPath<EmailMutable, "keywords/$seen"> = true;
-  const addressValue: JmapPatchValueAtPath<EmailMutable, "from/0/email"> = "user@example.test";
+  const mailboxValue: JmapPatchValueAtPath<EmailMutable, "mailboxIds/archive"> = true;
 
   assert.equal(keywordValue, true);
-  assert.equal(addressValue, "user@example.test");
+  assert.equal(mailboxValue, true);
 });
 
 test("JmapPatchObject supports both whole-property updates and nested patch paths", () => {
@@ -35,13 +33,11 @@ test("JmapPatchObject supports both whole-property updates and nested patch path
     },
     "keywords/$seen": null,
     "mailboxIds/archive": true,
-    "from/0/email": "updated@example.test",
   };
 
   assert.equal(patch.keywords?.["$flagged"], true);
   assert.equal(patch["keywords/$seen"], null);
   assert.equal(patch["mailboxIds/archive"], true);
-  assert.equal(patch["from/0/email"], "updated@example.test");
 });
 
 test("EmailUpdate is a JMAP patch object over the email mutable shape", () => {
