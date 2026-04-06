@@ -420,10 +420,12 @@ export class JmapMail {
   }
 
   async batchMarkAsRead(accountId: AccountId, emailIds: readonly string[], read = true): Promise<void> {
-    await this.patchEmails(
-      accountId,
-      Object.fromEntries(emailIds.map((emailId) => [emailId, { "keywords/$seen": read }])),
-    );
+    const updates: Record<string, EmailUpdate> = {};
+    for (const emailId of emailIds) {
+      updates[emailId] = { "keywords/$seen": read };
+    }
+
+    await this.patchEmails(accountId, updates);
   }
 
   async toggleStar(accountId: AccountId, emailId: string, starred: boolean): Promise<void> {
@@ -435,10 +437,12 @@ export class JmapMail {
   }
 
   async moveMany(accountId: AccountId, emailIds: readonly string[], mailboxId: MailboxId): Promise<void> {
-    await this.patchEmails(
-      accountId,
-      Object.fromEntries(emailIds.map((emailId) => [emailId, { mailboxIds: { [mailboxId.value]: true } }])),
-    );
+    const updates: Record<string, EmailUpdate> = {};
+    for (const emailId of emailIds) {
+      updates[emailId] = { mailboxIds: { [mailboxId.value]: true } };
+    }
+
+    await this.patchEmails(accountId, updates);
   }
 
   async destroy(accountId: AccountId, emailId: string): Promise<void> {
