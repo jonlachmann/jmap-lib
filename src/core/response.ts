@@ -28,7 +28,7 @@ export class JmapResponse {
 
   get<T>(callId: CallId, methodName: string): T {
     const match = this.methodResponses.find(
-      ([name, _arguments, rawCallId]) => rawCallId === callId.value,
+      ([_name, _arguments, rawCallId]) => rawCallId === callId.value,
     );
 
     if (!match) {
@@ -39,7 +39,7 @@ export class JmapResponse {
   }
 
   first<T>(methodName: string): T {
-    const match = this.methodResponses.find(([name]) => name === methodName || name === `${methodName}/error`);
+    const match = this.methodResponses.find(([name]) => name === methodName || name === "error");
 
     if (!match) {
       throw new Error(`Missing JMAP response for method "${methodName}"`);
@@ -55,7 +55,7 @@ export class JmapResponse {
   private unwrap<T>(response: RawMethodResponse, expectedMethodName: string): T {
     const [methodName, payload, callId] = response;
 
-    if (methodName === `${expectedMethodName}/error`) {
+    if (methodName === "error") {
       throw new JmapProtocolError(`JMAP method error for ${expectedMethodName}`, {
         methodName,
         details: payload,

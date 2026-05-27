@@ -67,6 +67,7 @@ type ListPageOptions = {
 type ListPageResult = {
   query: EmailQueryResponse;
   emails: JmapEmail[];
+  emailState?: string;
   hasMore: boolean;
 };
 
@@ -269,11 +270,13 @@ export class JmapMail {
 
     const response = await batch.send();
     const query = response.get<EmailQueryResponse>(queryCallId, "Email/query");
-    const emails = response.get<EmailGetResponse>(getCallId, "Email/get").list;
+    const emailGetResponse = response.get<EmailGetResponse>(getCallId, "Email/get");
+    const emails = emailGetResponse.list;
+    const emailState = emailGetResponse.state;
     const total = query.total ?? 0;
     const hasMore = total > 0 ? position + emails.length < total : emails.length === limit;
 
-    return { query, emails, hasMore };
+    return { query, emails, emailState, hasMore };
   }
 
   async queryChanges(
@@ -416,20 +419,21 @@ export class JmapMail {
   }
 
   async markAsRead(accountId: AccountId, emailId: string, read = true): Promise<void> {
-    await this.patchEmails(accountId, { [emailId]: { "keywords/$seen": read } });
+    await this.patchEmails(accountId, { [emailId]: { "keywords/$seen": read ? true : null } });
   }
 
   async batchMarkAsRead(accountId: AccountId, emailIds: readonly string[], read = true): Promise<void> {
     const updates: Record<string, EmailUpdate> = {};
+    const value = read ? true : null;
     for (const emailId of emailIds) {
-      updates[emailId] = { "keywords/$seen": read };
+      updates[emailId] = { "keywords/$seen": value };
     }
 
     await this.patchEmails(accountId, updates);
   }
 
   async toggleStar(accountId: AccountId, emailId: string, starred: boolean): Promise<void> {
-    await this.patchEmails(accountId, { [emailId]: { "keywords/$flagged": starred } });
+    await this.patchEmails(accountId, { [emailId]: { "keywords/$flagged": starred ? true : null } });
   }
 
   async move(accountId: AccountId, emailId: string, mailboxId: MailboxId): Promise<void> {

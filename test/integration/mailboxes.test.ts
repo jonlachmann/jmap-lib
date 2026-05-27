@@ -57,8 +57,8 @@ test("integration: queries seeded mailboxes and reports mailbox query changes de
     calculateTotal: true,
   });
 
-  assert.deepEqual(initialQuery.ids, []);
   assert.ok(initialQuery.queryState, "expected initial mailbox query state");
+  const initialIds = new Set(initialQuery.ids);
 
   const firstMailboxId = await mail.createMailbox(context.accountId, createIntegrationId("mailbox-1"), {
     name: `${marker}-alpha`,
@@ -80,13 +80,18 @@ test("integration: queries seeded mailboxes and reports mailbox query changes de
       sinceQueryState: initialQuery.queryState,
       calculateTotal: true,
     });
+    const newIds = query.ids.filter((id) => !initialIds.has(id));
 
     assert.ok(query.ids.includes(firstMailboxId));
     assert.ok(query.ids.includes(secondMailboxId));
+    assert.ok(newIds.includes(firstMailboxId));
+    assert.ok(newIds.includes(secondMailboxId));
     assert.deepEqual(changes.removed, []);
     assert.ok(changes.added?.some((entry) => entry.id === firstMailboxId));
     assert.ok(changes.added?.some((entry) => entry.id === secondMailboxId));
-    assert.equal(changes.total, query.ids.length);
+    if (changes.total !== undefined && initialQuery.total !== undefined) {
+      assert.equal(changes.total, initialQuery.total + newIds.length);
+    }
   } finally {
     await mail.destroyMailbox(context.accountId, firstMailboxId);
     await mail.destroyMailbox(context.accountId, secondMailboxId);

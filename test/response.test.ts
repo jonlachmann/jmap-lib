@@ -38,9 +38,19 @@ test("JmapResponse throws when responses are missing", () => {
 test("JmapResponse surfaces method errors", () => {
   const response = new JmapResponse({
     methodResponses: [
-      ["Email/get/error", { type: "invalidArguments" }, "0"],
+      ["error", { type: "invalidArguments" }, "0"],
     ],
   });
 
   assert.throws(() => response.first("Email/get"), JmapProtocolError);
+});
+
+test("JmapResponse.get surfaces method errors by call id", () => {
+  const response = new JmapResponse({
+    methodResponses: [
+      ["error", { type: "invalidArguments" }, "0"],
+    ],
+  });
+
+  assert.throws(() => response.get(CallId.of("0"), "Email/get"), JmapProtocolError);
 });

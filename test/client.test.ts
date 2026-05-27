@@ -136,7 +136,7 @@ test("JmapClient throws on JMAP method errors", async () => {
       new Response(
         JSON.stringify({
           methodResponses: [
-            ["Mailbox/get/error", { type: "accountNotFound" }, "0"],
+            ["error", { type: "accountNotFound" }, "0"],
           ],
         }),
         { status: 200 },

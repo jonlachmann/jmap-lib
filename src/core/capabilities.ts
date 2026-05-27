@@ -44,3 +44,15 @@ export const CORE_SIEVE_CAPABILITIES = [
   JMAP_CORE_CAPABILITY,
   JMAP_SIEVE_CAPABILITY,
 ] as const;
+
+export const JMAP_TASKS_CAPABILITY = "urn:ietf:params:jmap:tasks";
+export const JMAP_TASKS_RECURRENCES_CAPABILITY = "urn:ietf:params:jmap:tasks:recurrences";
+export const JMAP_TASKS_ASSIGNEES_CAPABILITY = "urn:ietf:params:jmap:tasks:assignees";
+export const JMAP_TASKS_ALERTS_CAPABILITY = "urn:ietf:params:jmap:tasks:alerts";
+export const JMAP_TASKS_MULTILINGUAL_CAPABILITY = "urn:ietf:params:jmap:tasks:multilingual";
+export const JMAP_TASKS_CUSTOMTIMEZONES_CAPABILITY = "urn:ietf:params:jmap:tasks:customtimezones";
+
+export const CORE_TASKS_CAPABILITIES = [
+  JMAP_CORE_CAPABILITY,
+  JMAP_TASKS_CAPABILITY,
+] as const;

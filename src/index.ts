@@ -82,3 +82,21 @@ export type * from "./calendars/types";
 export { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./sieve/methods";
 export { JmapSieve } from "./sieve/jmap-sieve";
 export type * from "./sieve/types";
+export {
+  TaskListGet,
+  TaskListChanges,
+  TaskListSet,
+  TaskGet,
+  TaskChanges,
+  TaskSet,
+  TaskCopy,
+  TaskQuery,
+  TaskQueryChanges,
+  TaskNotificationGet,
+  TaskNotificationChanges,
+  TaskNotificationSet,
+  TaskNotificationQuery,
+  TaskNotificationQueryChanges,
+} from "./tasks/methods";
+export { DEFAULT_TASK_PROPERTIES, JmapTasks } from "./tasks/jmap-tasks";
+export type * from "./tasks/types";

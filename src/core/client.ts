@@ -1,6 +1,6 @@
 import { CallId } from "./ids";
 import type { JmapMethod } from "./method";
-import { JmapProtocolError, JmapResponse, type RawMethodResponse, type RawJmapResponse } from "./response";
+import { JmapProtocolError, JmapResponse, type RawJmapResponse } from "./response";
 
 type FetchLike = typeof fetch;
 type RawMethodCall = [string, unknown, string];
@@ -66,7 +66,7 @@ export class JmapClient {
   constructor(options: JmapClientOptions) {
     this.endpoint = options.endpoint;
     this.capabilities = [...options.capabilities];
-    this.fetchImpl = options.fetch ?? fetch;
+    this.fetchImpl = options.fetch ?? fetch.bind(globalThis);
     this.authorizationHeader = options.authorizationHeader ?? (
       options.accessToken ? `Bearer ${options.accessToken}` : ""
     );
@@ -154,8 +154,8 @@ export class JmapClient {
     const jmapResponse = new JmapResponse(parsed);
 
     for (const [methodName, payload, callId] of jmapResponse.allRaw()) {
-      if (methodName.endsWith("/error")) {
-        throw new JmapProtocolError(`JMAP method error for ${methodName.slice(0, -6)}`, {
+      if (methodName === "error") {
+        throw new JmapProtocolError("JMAP method error", {
           methodName,
           details: payload,
           callId,

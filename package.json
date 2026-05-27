@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Framework-agnostic TypeScript JMAP library with typed protocol methods, convenience clients, and real-server integration tests",
   "license": "MIT",
+  "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {

@@ -30,7 +30,7 @@ export function createBasicAuthorizationHeader(username: string, password: strin
 }
 
 export async function discoverJmapSession(options: DiscoverJmapSessionOptions): Promise<JmapSession> {
-  const fetchImpl = options.fetch ?? fetch;
+  const fetchImpl = options.fetch ?? fetch.bind(globalThis);
   const sessionUrl = new URL("/.well-known/jmap", options.baseUrl).toString();
   const response = await fetchImpl(sessionUrl, {
     method: "GET",
