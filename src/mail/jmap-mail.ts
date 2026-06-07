@@ -62,6 +62,7 @@ type ListPageOptions = {
   limit?: number;
   position?: number;
   properties?: readonly EmailProperty[];
+  collapseThreads?: boolean;
 };
 
 type ListPageResult = {
@@ -77,6 +78,7 @@ type QueryPageOptions = {
   limit?: number;
   position?: number;
   properties?: readonly EmailProperty[];
+  collapseThreads?: boolean;
 };
 
 export class JmapMail {
@@ -245,6 +247,7 @@ export class JmapMail {
       limit: options.limit,
       position: options.position,
       properties: options.properties,
+      collapseThreads: options.collapseThreads,
     });
   }
 
@@ -261,6 +264,7 @@ export class JmapMail {
         limit,
         position,
         calculateTotal: true,
+        ...(options.collapseThreads ? { collapseThreads: true } : {}),
       }),
     );
 
@@ -288,6 +292,7 @@ export class JmapMail {
       maxChanges?: number;
       upToId?: string;
       calculateTotal?: boolean;
+      collapseThreads?: boolean;
     },
   ): Promise<EmailQueryChangesResponse> {
     return this.client.invoke<EmailQueryChangesRequest, EmailQueryChangesResponse>(
@@ -299,6 +304,7 @@ export class JmapMail {
         maxChanges: options.maxChanges,
         upToId: options.upToId,
         calculateTotal: options.calculateTotal,
+        ...(options.collapseThreads ? { collapseThreads: true } : {}),
       }),
     );
   }
@@ -329,6 +335,7 @@ export class JmapMail {
       limit: options.limit,
       position: options.position,
       properties: options.properties,
+      collapseThreads: options.collapseThreads,
     });
   }
 

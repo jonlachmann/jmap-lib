@@ -39,6 +39,7 @@ import type {
   TaskQueryChangesRequest,
   TaskQueryChangesResponse,
   TaskQueryRequest,
+  TaskQueryResponse,
   TaskQuerySort,
   TaskSetRequest,
   TaskUpdate,
@@ -189,15 +190,32 @@ export class JmapTasks {
     taskListIds?: readonly string[],
     properties: readonly TaskProperty[] = DEFAULT_TASK_PROPERTIES,
   ): Promise<Task[]> {
-    const batch = this.client.batch({ capabilities: CORE_TASKS_CAPABILITIES });
-    const queryCallId = batch.call(new TaskQuery({
-      accountId: accountId.value,
-      filter: taskListIds?.length ? { inTaskLists: [...taskListIds] } : undefined,
-      limit: 1000,
-    }));
-    const getCallId = batch.call(TaskGet.byQueryResult(accountId, queryCallId, properties));
-    const response = await batch.send();
-    return response.get<TaskGetResponse>(getCallId, "Task/get").list;
+    const PAGE_SIZE = 256;
+    const allTasks: Task[] = [];
+    let position = 0;
+
+    for (;;) {
+      const batch = this.client.batch({ capabilities: CORE_TASKS_CAPABILITIES });
+      const queryCallId = batch.call(new TaskQuery({
+        accountId: accountId.value,
+        filter: taskListIds?.length ? { inTaskLists: [...taskListIds] } : undefined,
+        limit: PAGE_SIZE,
+        position,
+        calculateTotal: true,
+      }));
+      const getCallId = batch.call(TaskGet.byQueryResult(accountId, queryCallId, properties));
+      const response = await batch.send();
+
+      const queryResult = response.get<TaskQueryResponse>(queryCallId, "Task/query");
+      const tasks = response.get<TaskGetResponse>(getCallId, "Task/get").list;
+      allTasks.push(...tasks);
+
+      const total = queryResult.total ?? tasks.length;
+      position += tasks.length;
+      if (position >= total || tasks.length < PAGE_SIZE) break;
+    }
+
+    return allTasks;
   }
 
   async queryTasks(

@@ -19,6 +19,7 @@ import type {
   ContactCardGetResponse,
   ContactCardSetRequest,
   ContactCardQueryRequest,
+  ContactCardQueryResponse,
   ContactCardQueryChangesRequest,
   ContactCardQueryChangesResponse,
   ContactCardQueryFilter,
@@ -36,15 +37,32 @@ export class JmapContacts {
   }
 
   async list(accountId: AccountId, addressBookId?: string): Promise<ContactCard[]> {
-    const batch = this.client.batch({ capabilities: CORE_CONTACTS_CAPABILITIES });
-    const queryCallId = batch.call(new ContactCardQuery({
-      accountId: accountId.value,
-      filter: addressBookId ? { inAddressBook: addressBookId } : undefined,
-      limit: 1000,
-    }));
-    const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
-    const response = await batch.send();
-    return response.get<ContactCardGetResponse>(getCallId, "ContactCard/get").list;
+    const PAGE_SIZE = 256;
+    const allContacts: ContactCard[] = [];
+    let position = 0;
+
+    for (;;) {
+      const batch = this.client.batch({ capabilities: CORE_CONTACTS_CAPABILITIES });
+      const queryCallId = batch.call(new ContactCardQuery({
+        accountId: accountId.value,
+        filter: addressBookId ? { inAddressBook: addressBookId } : undefined,
+        limit: PAGE_SIZE,
+        position,
+        calculateTotal: true,
+      }));
+      const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
+      const response = await batch.send();
+
+      const queryResult = response.get<ContactCardQueryResponse>(queryCallId, "ContactCard/query");
+      const contacts = response.get<ContactCardGetResponse>(getCallId, "ContactCard/get").list;
+      allContacts.push(...contacts);
+
+      const total = queryResult.total ?? contacts.length;
+      position += contacts.length;
+      if (position >= total || contacts.length < PAGE_SIZE) break;
+    }
+
+    return allContacts;
   }
 
   async get(accountId: AccountId, contactId: string): Promise<ContactCard | undefined> {

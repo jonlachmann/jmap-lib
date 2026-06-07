@@ -92,6 +92,21 @@ export interface MailboxQueryChangesResponse extends JmapQueryChangesResponse {}
 export interface EmailQueryFilter {
   [key: string]: unknown;
   inMailbox?: string;
+  inMailboxOtherThan?: string[];
+  before?: string;
+  after?: string;
+  minSize?: number;
+  maxSize?: number;
+  hasAttachment?: boolean;
+  text?: string;
+  from?: string;
+  to?: string;
+  cc?: string;
+  bcc?: string;
+  subject?: string;
+  body?: string;
+  hasKeyword?: string;
+  notKeyword?: string;
 }
 
 export type EmailQuerySortProperty =
@@ -108,7 +123,9 @@ export type EmailQuerySortProperty =
 
 export interface EmailQuerySort extends JmapComparator<EmailQuerySortProperty> {}
 
-export interface EmailQueryRequest extends JmapQueryArgs<EmailQueryFilter, EmailQuerySort> {}
+export interface EmailQueryRequest extends JmapQueryArgs<EmailQueryFilter, EmailQuerySort> {
+  collapseThreads?: boolean;
+}
 
 export interface EmailQueryResponse {
   accountId: string;
@@ -120,7 +137,9 @@ export interface EmailQueryResponse {
   limit?: number;
 }
 
-export interface EmailQueryChangesRequest extends JmapQueryChangesArgs<EmailQueryFilter, EmailQuerySort> {}
+export interface EmailQueryChangesRequest extends JmapQueryChangesArgs<EmailQueryFilter, EmailQuerySort> {
+  collapseThreads?: boolean;
+}
 
 export interface EmailQueryChangesResponse extends JmapQueryChangesResponse {}
 
@@ -163,6 +182,9 @@ export type EmailProperty =
   | "size"
   | "receivedAt"
   | "sentAt"
+  | "messageId"
+  | "inReplyTo"
+  | "references"
   | "from"
   | "to"
   | "cc"
@@ -170,7 +192,10 @@ export type EmailProperty =
   | "replyTo"
   | "subject"
   | "preview"
-  | "hasAttachment";
+  | "hasAttachment"
+  | "bodyValues"
+  | "textBody"
+  | "htmlBody";
 
 export interface JmapEmail {
   id: string;
@@ -179,6 +204,9 @@ export interface JmapEmail {
   keywords?: Record<JmapKeyword, boolean>;
   receivedAt?: string;
   sentAt?: string;
+  messageId?: string[];
+  inReplyTo?: string[];
+  references?: string[];
   from?: JmapEmailAddress[];
   to?: JmapEmailAddress[];
   cc?: JmapEmailAddress[];
@@ -188,6 +216,9 @@ export interface JmapEmail {
   preview?: string;
   hasAttachment?: boolean;
   size?: number;
+  bodyValues?: Record<string, EmailBodyValue>;
+  textBody?: EmailBodyPartReference[];
+  htmlBody?: EmailBodyPartReference[];
 }
 
 export interface EmailMutable {
@@ -205,7 +236,11 @@ export interface EmailMutable {
   attachments?: EmailAttachment[];
 }
 
-export interface EmailCreate extends EmailMutable {}
+export interface EmailCreate extends EmailMutable {
+  messageId?: string[];
+  inReplyTo?: string[];
+  references?: string[];
+}
 
 export type EmailUpdate = JmapPatchObject<EmailMutable>;
 
@@ -321,6 +356,7 @@ export type IdReference<MethodName extends string = string> = {
 
 export interface EmailGetRequest extends JmapGetArgs<EmailProperty> {
   "#ids"?: IdReference<"Email/query">;
+  fetchAllBodyValues?: boolean;
 }
 
 export interface EmailGetResponse {
