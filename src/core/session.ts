@@ -11,6 +11,7 @@ export interface JmapSession {
   apiUrl: string;
   downloadUrl?: string;
   uploadUrl?: string;
+  eventSourceUrl?: string;
   capabilities: Record<string, unknown>;
   primaryAccounts?: Record<string, string>;
   accounts?: Record<string, JmapSessionAccount>;

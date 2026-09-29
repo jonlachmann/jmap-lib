@@ -168,8 +168,10 @@ export interface EmailAttachment {
   blobId: string;
   type: string;
   name?: string;
+  size?: number;
   disposition?: "attachment" | "inline";
   cid?: string;
+  partId?: string;
 }
 
 export type JmapKeyword = string & {};
@@ -195,7 +197,8 @@ export type EmailProperty =
   | "hasAttachment"
   | "bodyValues"
   | "textBody"
-  | "htmlBody";
+  | "htmlBody"
+  | "attachments";
 
 export interface JmapEmail {
   id: string;
@@ -219,6 +222,7 @@ export interface JmapEmail {
   bodyValues?: Record<string, EmailBodyValue>;
   textBody?: EmailBodyPartReference[];
   htmlBody?: EmailBodyPartReference[];
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailMutable {
@@ -277,6 +281,13 @@ export interface EmailSubmissionSetRequest {
     emailId: string;
     identityId: string;
   }>;
+  /**
+   * RFC 8621 §7.5: Email/set patches applied if the keyed submission succeeds. Keys are
+   * EmailSubmission ids or "#" + a creation id from `create`.
+   */
+  onSuccessUpdateEmail?: Record<string, Record<string, unknown>>;
+  /** EmailSubmission ids or "#" + a creation id, whose Email is destroyed on success. */
+  onSuccessDestroyEmail?: string[];
 }
 
 export interface Thread {
@@ -356,7 +367,10 @@ export type IdReference<MethodName extends string = string> = {
 
 export interface EmailGetRequest extends JmapGetArgs<EmailProperty> {
   "#ids"?: IdReference<"Email/query">;
+  fetchTextBodyValues?: boolean;
+  fetchHTMLBodyValues?: boolean;
   fetchAllBodyValues?: boolean;
+  maxBodyValueBytes?: number;
 }
 
 export interface EmailGetResponse {

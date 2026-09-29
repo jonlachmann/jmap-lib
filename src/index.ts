@@ -32,6 +32,10 @@ export {
   resolvePrimaryAccountId,
 } from "./core/session";
 export type { JmapSession, JmapSessionAccount } from "./core/session";
+export { connectEventSource } from "./core/event-source";
+export type { StateChange, TypeState, JmapEventSourceOptions } from "./core/event-source";
+export { connectEventStream, SseParser } from "./core/event-stream";
+export type { JmapEventStream, JmapEventStreamOptions, ConnectionState } from "./core/event-stream";
 export {
   EmailChanges,
   EmailGet,

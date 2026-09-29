@@ -49,6 +49,18 @@ export class MailboxGet implements JmapMethod<MailboxGetRequest, MailboxGetRespo
       properties,
     });
   }
+
+  static byIds(
+    accountId: AccountId,
+    ids: readonly string[],
+    properties?: readonly MailboxProperty[],
+  ): MailboxGet {
+    return new MailboxGet({
+      accountId: accountId.value,
+      ids: [...ids],
+      properties,
+    });
+  }
 }
 
 export class MailboxChanges implements JmapMethod<MailboxChangesRequest, MailboxChangesResponse> {

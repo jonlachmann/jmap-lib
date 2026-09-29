@@ -28,6 +28,8 @@ import type {
   MailboxChangesRequest,
   MailboxQueryChangesRequest,
   MailboxQueryChangesResponse,
+  MailboxChangesResponse,
+  MailboxProperty,
   MailboxQueryFilter,
   MailboxQueryRequest,
   MailboxQueryResponse,
@@ -88,12 +90,22 @@ export class JmapMail {
     return this.client.invoke<MailboxGetRequest, MailboxGetResponse>(MailboxGet.all(accountId));
   }
 
+  async getMailboxesByIds(
+    accountId: AccountId,
+    ids: readonly string[],
+    properties?: readonly MailboxProperty[],
+  ) {
+    return this.client.invoke<MailboxGetRequest, MailboxGetResponse>(
+      MailboxGet.byIds(accountId, ids, properties),
+    );
+  }
+
   async getMailboxChanges(
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<MailboxChangesRequest, JmapChangesResponse>(
+  ): Promise<MailboxChangesResponse> {
+    return this.client.invoke<MailboxChangesRequest, MailboxChangesResponse>(
       new MailboxChanges({
         accountId: accountId.value,
         sinceState,
@@ -546,7 +558,12 @@ export class JmapMail {
     return createdId;
   }
 
-  async submit(accountId: AccountId, identityId: string, emailId: string): Promise<void> {
+  async submit(
+    accountId: AccountId,
+    identityId: string,
+    emailId: string,
+    onSuccess?: Record<string, unknown>,
+  ): Promise<void> {
     const response = await this.client.invoke<EmailSubmissionSetRequest, import("../core/set").JmapSetResponse>(
       new EmailSubmissionSet({
         accountId: accountId.value,
@@ -556,6 +573,7 @@ export class JmapMail {
             identityId,
           },
         },
+        ...(onSuccess ? { onSuccessUpdateEmail: { "#submission": onSuccess } } : {}),
       }),
       { capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission"] },
     );
