@@ -40,6 +40,17 @@ export interface ContactAddress {
   label?: string;
 }
 
+/** RFC 9553 2.6.4. Content the server stores is given as a blobId (RFC 9610 3), a link as a uri. */
+export interface ContactMedia {
+  kind: "photo" | "sound" | "logo";
+  uri?: string;
+  blobId?: string;
+  mediaType?: string;
+  contexts?: Record<string, boolean>;
+  pref?: number;
+  label?: string;
+}
+
 export interface ContactCard {
   id: string;
   uid?: string;
@@ -50,6 +61,7 @@ export interface ContactCard {
   phones?: Record<string, ContactPhone>;
   organizations?: Record<string, ContactOrganization>;
   addresses?: Record<string, ContactAddress>;
+  media?: Record<string, ContactMedia>;
   members?: Record<string, boolean>;
   created?: string;
   updated?: string;
@@ -121,6 +133,7 @@ export type ContactCardProperty =
   | "phones"
   | "organizations"
   | "addresses"
+  | "media"
   | "members"
   | "created"
   | "updated";
@@ -149,6 +162,7 @@ export interface ContactCardMutable {
   phones?: Record<string, ContactPhone>;
   organizations?: Record<string, ContactOrganization>;
   addresses?: Record<string, ContactAddress>;
+  media?: Record<string, ContactMedia>;
   members?: Record<string, boolean>;
 }
 

@@ -52,6 +52,9 @@ export interface CalendarEvent {
   excludedRecurrenceRules?: unknown[] | null;
   recurrenceOverrides?: Record<string, unknown> | null;
   recurrenceId?: string | null;
+  recurrenceIdTimeZone?: string | null;
+  /** On an instance listed with expandRecurrences: the id of the recurring event it is one of. */
+  baseEventId?: string | null;
   isOrigin?: boolean;
 }
 
@@ -99,6 +102,8 @@ export type CalendarEventProperty =
   | "excludedRecurrenceRules"
   | "recurrenceOverrides"
   | "recurrenceId"
+  | "recurrenceIdTimeZone"
+  | "baseEventId"
   | "isOrigin";
 
 export interface CalendarGetRequest extends JmapGetArgs<CalendarProperty> {}
@@ -127,7 +132,10 @@ export type CalendarUpdate = JmapPatchObject<CalendarMutable>;
 export interface CalendarSetRequest extends JmapSetArgs<CalendarCreate, CalendarUpdate> {}
 
 export interface CalendarEventQueryRequest
-  extends JmapQueryArgs<CalendarEventFilter, CalendarEventQuerySort> {}
+  extends JmapQueryArgs<CalendarEventFilter, CalendarEventQuerySort> {
+  /** Each instance of a recurring event as an id of its own; the filter needs after and before. */
+  expandRecurrences?: boolean;
+}
 
 export interface CalendarEventQueryResponse {
   accountId: string;

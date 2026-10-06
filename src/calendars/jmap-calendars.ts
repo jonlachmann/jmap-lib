@@ -156,6 +156,42 @@ export class JmapCalendars {
     return allEvents;
   }
 
+  /** The instances in [after, before) of every event, recurring ones expanded, by start. */
+  async listEventInstances(
+    accountId: AccountId,
+    after: string,
+    before: string,
+    properties: readonly CalendarEventProperty[] = DEFAULT_CALENDAR_EVENT_PROPERTIES,
+  ): Promise<CalendarEvent[]> {
+    const PAGE_SIZE = 256;
+    const instances: CalendarEvent[] = [];
+    let position = 0;
+
+    for (;;) {
+      const batch = this.client.batch({ capabilities: CORE_CALENDARS_CAPABILITIES });
+      const queryCallId = batch.call(new CalendarEventQuery({
+        accountId: accountId.value,
+        filter: { after, before },
+        expandRecurrences: true,
+        limit: PAGE_SIZE,
+        position,
+        calculateTotal: true,
+      }));
+      const getCallId = batch.call(CalendarEventGet.byQueryResult(accountId, queryCallId, [...properties, "baseEventId"]));
+      const response = await batch.send();
+
+      const queryResult = response.get<CalendarEventQueryResponse>(queryCallId, "CalendarEvent/query");
+      const events = response.get<CalendarEventGetResponse>(getCallId, "CalendarEvent/get").list;
+      instances.push(...events);
+
+      const total = queryResult.total ?? events.length;
+      position += events.length;
+      if (position >= total || events.length < PAGE_SIZE) break;
+    }
+
+    return instances;
+  }
+
   async queryEvents(
     accountId: AccountId,
     filter: FilterOperatorCondition<CalendarEventFilter>,
