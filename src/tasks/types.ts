@@ -76,7 +76,7 @@ export interface TaskListGetRequest extends JmapGetArgs<TaskListProperty> {}
 
 export interface TaskListGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: TaskList[];
 }
 
@@ -154,9 +154,9 @@ export interface Task {
   title?: string;
   description?: string;
   descriptionContentType?: string;
-  start?: string;
-  due?: string;
-  duration?: string;
+  start?: string | null;
+  due?: string | null;
+  duration?: string | null;
   timeZone?: string | null;
   showWithoutTime?: boolean;
   progress?: "needs-action" | "in-process" | "completed" | "failed" | "cancelled" | null;
@@ -256,9 +256,9 @@ export interface TaskMutable {
   title?: string;
   description?: string;
   descriptionContentType?: string;
-  start?: string;
-  due?: string;
-  duration?: string;
+  start?: string | null;
+  due?: string | null;
+  duration?: string | null;
   timeZone?: string | null;
   showWithoutTime?: boolean;
   progress?: "needs-action" | "in-process" | "completed" | "failed" | "cancelled" | null;
@@ -311,7 +311,7 @@ export interface TaskGetRequest extends JmapGetArgs<TaskProperty> {
 
 export interface TaskGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: Task[];
   notFound?: string[];
 }
@@ -413,7 +413,7 @@ export interface TaskNotificationGetRequest extends JmapGetArgs<TaskNotification
 
 export interface TaskNotificationGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: TaskNotification[];
   notFound?: string[];
 }

@@ -20,6 +20,14 @@ export class JmapHttpError extends Error {
   }
 }
 
+/** The request got no response: the network is down, or the server can't be reached. */
+export class JmapNetworkError extends Error {
+  constructor(cause: unknown) {
+    super("JMAP request failed to reach the server", { cause });
+    this.name = "JmapNetworkError";
+  }
+}
+
 type JmapClientOptions = {
   endpoint: string;
   accessToken?: string;
@@ -126,19 +134,24 @@ export class JmapClient {
   }
 
   private async send(methodCalls: RawMethodCall[], options?: JmapRequestOptions): Promise<JmapResponse> {
-    const response = await this.fetchImpl(this.endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: this.authorizationHeader,
-      },
-      body: JSON.stringify({
-        using: options?.capabilities ?? this.capabilities,
-        methodCalls,
-      }),
-    });
-
-    const rawBody = await response.text();
+    let response: globalThis.Response;
+    let rawBody: string;
+    try {
+      response = await this.fetchImpl(this.endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: this.authorizationHeader,
+        },
+        body: JSON.stringify({
+          using: options?.capabilities ?? this.capabilities,
+          methodCalls,
+        }),
+      });
+      rawBody = await response.text();
+    } catch (error) {
+      throw new JmapNetworkError(error);
+    }
 
     if (!response.ok) {
       throw new JmapHttpError(response.status, rawBody);

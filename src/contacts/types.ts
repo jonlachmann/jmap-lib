@@ -1,5 +1,6 @@
 import type { JmapGetArgs } from "../core/get";
 import type { JmapPatchObject } from "../core/patch";
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
@@ -95,7 +96,7 @@ export interface AddressBookGetRequest extends JmapGetArgs<AddressBookProperty> 
 
 export interface AddressBookGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: AddressBook[];
 }
 
@@ -148,7 +149,7 @@ export interface ContactCardGetRequest extends JmapGetArgs<ContactCardProperty> 
 
 export interface ContactCardGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: ContactCard[];
   notFound?: string[];
 }
@@ -171,3 +172,11 @@ export interface ContactCardCreate extends ContactCardMutable {}
 export type ContactCardUpdate = JmapPatchObject<ContactCardMutable>;
 
 export interface ContactCardSetRequest extends JmapSetArgs<ContactCardCreate, ContactCardUpdate> {}
+
+export interface AddressBookChangesRequest extends JmapChangesArgs {}
+
+export interface AddressBookChangesResponse extends JmapChangesResponse {}
+
+export interface ContactCardChangesRequest extends JmapChangesArgs {}
+
+export interface ContactCardChangesResponse extends JmapChangesResponse {}

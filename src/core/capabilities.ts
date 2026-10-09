@@ -56,3 +56,11 @@ export const CORE_TASKS_CAPABILITIES = [
   JMAP_CORE_CAPABILITY,
   JMAP_TASKS_CAPABILITY,
 ] as const;
+
+// Private capability from rfcs/draft-jmap-notes-00.txt (not IETF-registered).
+export const JMAP_NOTES_CAPABILITY = "urn:x-jmap-lib:notes";
+
+export const CORE_NOTES_CAPABILITIES = [
+  JMAP_CORE_CAPABILITY,
+  JMAP_NOTES_CAPABILITY,
+] as const;

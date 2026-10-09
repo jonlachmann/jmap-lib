@@ -7,6 +7,7 @@ import {
   EmailQuery,
   JmapClient,
   JmapHttpError,
+  JmapNetworkError,
   JmapProtocolError,
   MailboxId,
 } from "jmap-lib";
@@ -145,6 +146,20 @@ test("JmapClient throws on JMAP method errors", async () => {
 
   await assert.rejects(
     () => client.invoke({ methodName: "Mailbox/get", arguments: { accountId: "acc" } }),
-    JmapProtocolError,
+    (error: unknown) => error instanceof JmapProtocolError && error.type === "accountNotFound",
+  );
+});
+
+test("JmapClient throws a network error when the request gets no response", async () => {
+  const client = new JmapClient({
+    endpoint: "https://example.test/jmap",
+    accessToken: "secret",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async () => { throw new TypeError("Failed to fetch"); },
+  });
+
+  await assert.rejects(
+    () => client.invoke({ methodName: "Mailbox/get", arguments: { accountId: "acc" } }),
+    (error: unknown) => error instanceof JmapNetworkError && error.cause instanceof TypeError,
   );
 });

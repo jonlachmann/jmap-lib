@@ -4,17 +4,23 @@ import { AccountId } from "../core/ids";
 import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
 import {
+  AddressBookChanges,
   AddressBookGet,
+  ContactCardChanges,
   ContactCardGet,
   ContactCardQuery,
   ContactCardQueryChanges,
   ContactCardSet,
 } from "./methods";
 import type {
+  AddressBookChangesRequest,
+  AddressBookChangesResponse,
   AddressBookGetRequest,
   AddressBookGetResponse,
   AddressBook,
   ContactCard,
+  ContactCardChangesRequest,
+  ContactCardChangesResponse,
   ContactCardGetRequest,
   ContactCardGetResponse,
   ContactCardSetRequest,
@@ -34,6 +40,33 @@ export class JmapContacts {
       capabilities: CORE_CONTACTS_CAPABILITIES,
     });
     return response.list;
+  }
+
+  async getAddressBooks(accountId: AccountId): Promise<AddressBookGetResponse> {
+    return this.client.invoke<AddressBookGetRequest, AddressBookGetResponse>(AddressBookGet.all(accountId), {
+      capabilities: CORE_CONTACTS_CAPABILITIES,
+    });
+  }
+
+  async getAddressBookChanges(accountId: AccountId, sinceState: string, options?: { maxChanges?: number }): Promise<AddressBookChangesResponse> {
+    return this.client.invoke<AddressBookChangesRequest, AddressBookChangesResponse>(
+      new AddressBookChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_CONTACTS_CAPABILITIES },
+    );
+  }
+
+  async getChanges(accountId: AccountId, sinceState: string, options?: { maxChanges?: number }): Promise<ContactCardChangesResponse> {
+    return this.client.invoke<ContactCardChangesRequest, ContactCardChangesResponse>(
+      new ContactCardChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_CONTACTS_CAPABILITIES },
+    );
+  }
+
+  /** Cards by id with the state they are at; no ids gives the state alone. */
+  async getCards(accountId: AccountId, ids: readonly string[]): Promise<ContactCardGetResponse> {
+    return this.client.invoke<ContactCardGetRequest, ContactCardGetResponse>(ContactCardGet.byIds(accountId, ids), {
+      capabilities: CORE_CONTACTS_CAPABILITIES,
+    });
   }
 
   async list(accountId: AccountId, addressBookId?: string): Promise<ContactCard[]> {

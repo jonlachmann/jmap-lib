@@ -15,7 +15,7 @@ export interface SieveScriptGetRequest extends JmapGetArgs<SieveScriptProperty> 
 
 export interface SieveScriptGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: SieveScript[];
 }
 

@@ -1,8 +1,12 @@
 import type { JmapMethod } from "../core/method";
 import { AccountId, CallId } from "../core/ids";
 import type {
+  AddressBookChangesRequest,
+  AddressBookChangesResponse,
   AddressBookGetRequest,
   AddressBookGetResponse,
+  ContactCardChangesRequest,
+  ContactCardChangesResponse,
   ContactCardGetRequest,
   ContactCardGetResponse,
   ContactCardQueryRequest,
@@ -22,6 +26,24 @@ export class AddressBookGet implements JmapMethod<AddressBookGetRequest, Address
 
   static all(accountId: AccountId): AddressBookGet {
     return new AddressBookGet({ accountId: accountId.value });
+  }
+}
+
+export class AddressBookChanges implements JmapMethod<AddressBookChangesRequest, AddressBookChangesResponse> {
+  readonly methodName = "AddressBook/changes";
+  readonly arguments: AddressBookChangesRequest;
+
+  constructor(args: AddressBookChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class ContactCardChanges implements JmapMethod<ContactCardChangesRequest, ContactCardChangesResponse> {
+  readonly methodName = "ContactCard/changes";
+  readonly arguments: ContactCardChangesRequest;
+
+  constructor(args: ContactCardChangesRequest) {
+    this.arguments = args;
   }
 }
 

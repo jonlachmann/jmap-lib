@@ -47,7 +47,7 @@ export interface MailboxGetRequest extends JmapGetArgs<MailboxProperty> {}
 
 export interface MailboxGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: JmapMailbox[];
   notFound?: string[];
 }
@@ -301,7 +301,7 @@ export interface ThreadGetRequest extends JmapGetArgs<ThreadProperty> {}
 
 export interface ThreadGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: Thread[];
   notFound?: string[];
 }
@@ -335,7 +335,7 @@ export interface IdentityGetRequest extends JmapGetArgs<IdentityProperty> {}
 
 export interface IdentityGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: Identity[];
   notFound?: string[];
 }
@@ -375,7 +375,7 @@ export interface EmailGetRequest extends JmapGetArgs<EmailProperty> {
 
 export interface EmailGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: JmapEmail[];
   notFound?: string[];
 }

@@ -1,5 +1,5 @@
 export * from "./core/capabilities";
-export { JmapBatch, JmapClient, JmapHttpError } from "./core/client";
+export { JmapBatch, JmapClient, JmapHttpError, JmapNetworkError } from "./core/client";
 export { CoreEcho } from "./core/core-methods";
 export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods";
 export { AccountId, CallId, MailboxId } from "./core/ids";
@@ -23,7 +23,7 @@ export type {
   JmapQueryChangesArgs,
   JmapQueryChangesResponse,
 } from "./core/query";
-export { JmapProtocolError, JmapResponse } from "./core/response";
+export { JmapProtocolError, JmapResponse, type JmapMethodErrorType } from "./core/response";
 export type { JmapMethodError, JmapSetArgs, JmapSetResponse } from "./core/set";
 export { getSetError } from "./core/set";
 export {
@@ -31,7 +31,7 @@ export {
   discoverJmapSession,
   resolvePrimaryAccountId,
 } from "./core/session";
-export type { JmapSession, JmapSessionAccount } from "./core/session";
+export type { JmapCoreCapability, JmapSession, JmapSessionAccount } from "./core/session";
 export { connectEventSource } from "./core/event-source";
 export type { StateChange, TypeState, JmapEventSourceOptions } from "./core/event-source";
 export { connectEventStream, SseParser } from "./core/event-stream";
@@ -64,7 +64,9 @@ export { VacationResponseGet, VacationResponseSet } from "./vacation/methods";
 export { JmapVacation } from "./vacation/jmap-vacation";
 export type * from "./vacation/types";
 export {
+  AddressBookChanges,
   AddressBookGet,
+  ContactCardChanges,
   ContactCardGet,
   ContactCardQuery,
   ContactCardQueryChanges,
@@ -73,6 +75,8 @@ export {
 export { JmapContacts } from "./contacts/jmap-contacts";
 export type * from "./contacts/types";
 export {
+  CalendarChanges,
+  CalendarEventChanges,
   CalendarEventGet,
   CalendarEventParse,
   CalendarEventQuery,
@@ -104,3 +108,16 @@ export {
 } from "./tasks/methods";
 export { DEFAULT_TASK_PROPERTIES, JmapTasks } from "./tasks/jmap-tasks";
 export type * from "./tasks/types";
+export {
+  NoteBookGet,
+  NoteBookChanges,
+  NoteBookSet,
+  NoteGet,
+  NoteChanges,
+  NoteSet,
+  NoteCopy,
+  NoteQuery,
+  NoteQueryChanges,
+} from "./notes/methods";
+export { DEFAULT_NOTE_PROPERTIES, JmapNotes } from "./notes/jmap-notes";
+export type * from "./notes/types";

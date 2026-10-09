@@ -1,3 +1,4 @@
+import { JMAP_CORE_CAPABILITY } from "./capabilities";
 type FetchLike = typeof fetch;
 
 export interface JmapSessionAccount {
@@ -7,12 +8,24 @@ export interface JmapSessionAccount {
   accountCapabilities?: Record<string, unknown>;
 }
 
+/** RFC 8620 2. */
+export interface JmapCoreCapability {
+  maxSizeUpload: number;
+  maxConcurrentUpload: number;
+  maxSizeRequest: number;
+  maxConcurrentRequests: number;
+  maxCallsInRequest: number;
+  maxObjectsInGet: number;
+  maxObjectsInSet: number;
+  collationAlgorithms: string[];
+}
+
 export interface JmapSession {
   apiUrl: string;
   downloadUrl?: string;
   uploadUrl?: string;
   eventSourceUrl?: string;
-  capabilities: Record<string, unknown>;
+  capabilities: Record<string, unknown> & { [JMAP_CORE_CAPABILITY]: JmapCoreCapability };
   primaryAccounts?: Record<string, string>;
   accounts?: Record<string, JmapSessionAccount>;
   username?: string;

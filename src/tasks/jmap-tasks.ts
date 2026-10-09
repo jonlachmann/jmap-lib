@@ -103,6 +103,13 @@ export class JmapTasks {
     return response.list;
   }
 
+  async getTaskLists(accountId: AccountId): Promise<TaskListGetResponse> {
+    return this.client.invoke<TaskListGetRequest, TaskListGetResponse>(
+      TaskListGet.all(accountId),
+      { capabilities: CORE_TASKS_CAPABILITIES },
+    );
+  }
+
   async getTaskListChanges(
     accountId: AccountId,
     sinceState: string,
@@ -276,6 +283,18 @@ export class JmapTasks {
       { capabilities: CORE_TASKS_CAPABILITIES },
     );
     return response.list[0];
+  }
+
+  /** Tasks by id with the state they are at; no ids gives the state alone. */
+  async getTasks(
+    accountId: AccountId,
+    ids: readonly string[],
+    properties: readonly TaskProperty[] = DEFAULT_TASK_PROPERTIES,
+  ): Promise<TaskGetResponse> {
+    return this.client.invoke<TaskGetRequest, TaskGetResponse>(
+      TaskGet.byIds(accountId, ids, properties),
+      { capabilities: CORE_TASKS_CAPABILITIES },
+    );
   }
 
   async getTaskChanges(

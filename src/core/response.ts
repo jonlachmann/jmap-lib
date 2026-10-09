@@ -5,10 +5,34 @@ export type RawJmapResponse = {
   methodResponses?: RawMethodResponse[];
 };
 
+/** The method-level errors of RFC 8620 (3.6.2 and section 5). */
+export type JmapMethodErrorType =
+  | "serverUnavailable"
+  | "serverFail"
+  | "serverPartialFail"
+  | "unknownMethod"
+  | "invalidArguments"
+  | "invalidResultReference"
+  | "forbidden"
+  | "accountNotFound"
+  | "accountNotSupportedByMethod"
+  | "accountReadOnly"
+  | "requestTooLarge"
+  | "stateMismatch"
+  | "cannotCalculateChanges"
+  | "tooManyChanges"
+  | "anchorNotFound"
+  | "unsupportedSort"
+  | "unsupportedFilter"
+  | "fromAccountNotFound"
+  | "fromAccountNotSupportedByMethod"
+  | (string & {});
+
 export class JmapProtocolError extends Error {
   readonly methodName: string;
   readonly details: unknown;
   readonly callId?: string;
+  readonly type?: JmapMethodErrorType;
 
   constructor(message: string, options: { methodName: string; details: unknown; callId?: string }) {
     super(message);
@@ -16,6 +40,8 @@ export class JmapProtocolError extends Error {
     this.methodName = options.methodName;
     this.details = options.details;
     this.callId = options.callId;
+    const type = (options.details as { type?: unknown } | null)?.type;
+    this.type = typeof type === "string" ? type : undefined;
   }
 }
 

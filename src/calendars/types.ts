@@ -1,3 +1,4 @@
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
 import type { JmapGetArgs } from "../core/get";
 import type { JmapPatchObject } from "../core/patch";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
@@ -40,6 +41,7 @@ export interface CalendarEvent {
   status?: "tentative" | "confirmed" | "cancelled";
   freeBusyStatus?: "free" | "busy";
   privacy?: "public" | "private" | "secret";
+  priority?: number;
   color?: string | null;
   keywords?: Record<string, boolean> | null;
   locations?: Record<string, unknown> | null;
@@ -90,6 +92,7 @@ export type CalendarEventProperty =
   | "status"
   | "freeBusyStatus"
   | "privacy"
+  | "priority"
   | "color"
   | "keywords"
   | "locations"
@@ -110,7 +113,7 @@ export interface CalendarGetRequest extends JmapGetArgs<CalendarProperty> {}
 
 export interface CalendarGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: Calendar[];
 }
 
@@ -158,9 +161,17 @@ export interface CalendarEventGetRequest extends JmapGetArgs<CalendarEventProper
   };
 }
 
+export interface CalendarChangesRequest extends JmapChangesArgs {}
+
+export interface CalendarChangesResponse extends JmapChangesResponse {}
+
+export interface CalendarEventChangesRequest extends JmapChangesArgs {}
+
+export interface CalendarEventChangesResponse extends JmapChangesResponse {}
+
 export interface CalendarEventGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: CalendarEvent[];
   notFound?: string[];
 }
@@ -178,6 +189,7 @@ export interface CalendarEventMutable {
   status?: "tentative" | "confirmed" | "cancelled";
   freeBusyStatus?: "free" | "busy";
   privacy?: "public" | "private" | "secret";
+  priority?: number;
   color?: string | null;
   keywords?: Record<string, boolean> | null;
   locations?: Record<string, unknown> | null;

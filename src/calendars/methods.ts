@@ -1,6 +1,10 @@
 import type { JmapMethod } from "../core/method";
 import { AccountId, CallId } from "../core/ids";
 import type {
+  CalendarChangesRequest,
+  CalendarChangesResponse,
+  CalendarEventChangesRequest,
+  CalendarEventChangesResponse,
   CalendarEventGetRequest,
   CalendarEventGetResponse,
   CalendarEventParseRequest,
@@ -26,6 +30,24 @@ export class CalendarGet implements JmapMethod<CalendarGetRequest, CalendarGetRe
 
   static all(accountId: AccountId): CalendarGet {
     return new CalendarGet({ accountId: accountId.value });
+  }
+}
+
+export class CalendarChanges implements JmapMethod<CalendarChangesRequest, CalendarChangesResponse> {
+  readonly methodName = "Calendar/changes";
+  readonly arguments: CalendarChangesRequest;
+
+  constructor(args: CalendarChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class CalendarEventChanges implements JmapMethod<CalendarEventChangesRequest, CalendarEventChangesResponse> {
+  readonly methodName = "CalendarEvent/changes";
+  readonly arguments: CalendarEventChangesRequest;
+
+  constructor(args: CalendarEventChangesRequest) {
+    this.arguments = args;
   }
 }
 

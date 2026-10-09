@@ -4,6 +4,8 @@ import { AccountId } from "../core/ids";
 import type { FilterOperatorCondition } from "../core/query";
 import { getSetError } from "../core/set";
 import {
+  CalendarChanges,
+  CalendarEventChanges,
   CalendarEventGet,
   CalendarEventParse,
   CalendarEventQuery,
@@ -14,7 +16,11 @@ import {
 } from "./methods";
 import type {
   Calendar,
+  CalendarChangesRequest,
+  CalendarChangesResponse,
   CalendarEvent,
+  CalendarEventChangesRequest,
+  CalendarEventChangesResponse,
   CalendarEventFilter,
   CalendarEventGetRequest,
   CalendarEventGetResponse,
@@ -46,6 +52,7 @@ export const DEFAULT_CALENDAR_EVENT_PROPERTIES = [
   "status",
   "freeBusyStatus",
   "privacy",
+  "priority",
   "color",
   "keywords",
   "locations",
@@ -69,6 +76,38 @@ export class JmapCalendars {
       capabilities: CORE_CALENDARS_CAPABILITIES,
     });
     return response.list;
+  }
+
+  /** The calendars with the state they are at, to sync changes from. */
+  async getAll(accountId: AccountId): Promise<CalendarGetResponse> {
+    return this.client.invoke<CalendarGetRequest, CalendarGetResponse>(CalendarGet.all(accountId), {
+      capabilities: CORE_CALENDARS_CAPABILITIES,
+    });
+  }
+
+  async getChanges(accountId: AccountId, sinceState: string, options?: { maxChanges?: number }): Promise<CalendarChangesResponse> {
+    return this.client.invoke<CalendarChangesRequest, CalendarChangesResponse>(
+      new CalendarChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
+  }
+
+  async getEventChanges(accountId: AccountId, sinceState: string, options?: { maxChanges?: number }): Promise<CalendarEventChangesResponse> {
+    return this.client.invoke<CalendarEventChangesRequest, CalendarEventChangesResponse>(
+      new CalendarEventChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
+  }
+
+  /** Events by id with the state they are at; no ids gives the state alone. */
+  async getEvents(
+    accountId: AccountId,
+    ids: readonly string[],
+    properties: readonly CalendarEventProperty[] = DEFAULT_CALENDAR_EVENT_PROPERTIES,
+  ): Promise<CalendarEventGetResponse> {
+    return this.client.invoke<CalendarEventGetRequest, CalendarEventGetResponse>(CalendarEventGet.byIds(accountId, ids, properties), {
+      capabilities: CORE_CALENDARS_CAPABILITIES,
+    });
   }
 
   async create(accountId: AccountId, clientId: string, calendar: Partial<Calendar>): Promise<string> {

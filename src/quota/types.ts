@@ -14,6 +14,6 @@ export interface QuotaGetRequest extends JmapGetArgs<QuotaProperty> {}
 
 export interface QuotaGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: JmapQuota[];
 }

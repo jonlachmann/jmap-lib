@@ -25,7 +25,7 @@ export interface VacationResponseGetRequest extends JmapGetArgs<VacationResponse
 
 export interface VacationResponseGetResponse {
   accountId: string;
-  state?: string;
+  state: string;
   list: VacationResponse[];
 }
 
