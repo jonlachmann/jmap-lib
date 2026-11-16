@@ -53,12 +53,12 @@ test("CalendarEventSet combines shared set arguments with method-specific fields
 test("ContactCardUpdate supports nested patch paths over mutable contact data", () => {
   const update: ContactCardUpdate = {
     "emails/work": { address: "user@example.test" },
-    "addresses/home": { locality: "Stockholm" },
+    "addresses/home": { full: "Stockholm" },
     "members/contact-2": true,
   };
 
   assert.equal(update["emails/work"]?.address, "user@example.test");
-  assert.equal(update["addresses/home"]?.locality, "Stockholm");
+  assert.equal(update["addresses/home"]?.full, "Stockholm");
   assert.equal(update["members/contact-2"], true);
 });
 

@@ -2,7 +2,7 @@ import { AccountId, MailboxId } from "../core/ids";
 import { JmapClient } from "../core/client";
 import type { JmapChangesResponse } from "../core/changes";
 import type { FilterOperatorCondition } from "../core/query";
-import { getSetError } from "../core/set";
+import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
 import {
   EmailChanges,
   EmailGet,
@@ -198,29 +198,19 @@ export class JmapMail {
     );
   }
 
-  async createMailbox(accountId: AccountId, clientId: string, mailbox: MailboxSetEntry): Promise<string> {
-    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+  async createMailbox(accountId: AccountId, mailbox: MailboxSetEntry): Promise<JmapCreated> {
+    const response = await this.client.invoke<MailboxSetRequest, JmapSetResponse>(
       new MailboxSet({
         accountId: accountId.value,
-        create: { [clientId]: mailbox },
+        create: { [CREATION_ID]: mailbox },
       }),
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create mailbox");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("Mailbox/set create did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "mailbox");
   }
 
-  async updateMailbox(accountId: AccountId, mailboxId: string, updates: MailboxSetEntry): Promise<void> {
-    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+  async updateMailbox(accountId: AccountId, mailboxId: string, updates: MailboxSetEntry): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<MailboxSetRequest, JmapSetResponse>(
       new MailboxSet({
         accountId: accountId.value,
         update: { [mailboxId]: updates },
@@ -231,14 +221,16 @@ export class JmapMail {
     if (error) {
       throw new Error(error.description || "Failed to update mailbox");
     }
+
+    return response;
   }
 
   async destroyMailbox(
     accountId: AccountId,
     mailboxId: string,
     options?: { onDestroyRemoveEmails?: boolean },
-  ): Promise<void> {
-    const response = await this.client.invoke<MailboxSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<MailboxSetRequest, JmapSetResponse>(
       new MailboxSet({
         accountId: accountId.value,
         destroy: [mailboxId],
@@ -250,6 +242,8 @@ export class JmapMail {
     if (error) {
       throw new Error(error.description || "Failed to destroy mailbox");
     }
+
+    return response;
   }
 
   async listPage(options: ListPageOptions): Promise<ListPageResult> {
@@ -423,8 +417,8 @@ export class JmapMail {
     };
   }
 
-  async updateKeywords(accountId: AccountId, emailId: string, keywords: Record<string, boolean>): Promise<void> {
-    const response = await this.client.invoke<EmailSetRequest, import("../core/set").JmapSetResponse>(
+  async updateKeywords(accountId: AccountId, emailId: string, keywords: Record<string, boolean>): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
       new EmailSet({
         accountId: accountId.value,
         update: { [emailId]: { keywords } },
@@ -435,45 +429,47 @@ export class JmapMail {
     if (error) {
       throw new Error(error.description || "Failed to update email keywords");
     }
+
+    return response;
   }
 
-  async markAsRead(accountId: AccountId, emailId: string, read = true): Promise<void> {
-    await this.patchEmails(accountId, { [emailId]: { "keywords/$seen": read ? true : null } });
+  async markAsRead(accountId: AccountId, emailId: string, read = true): Promise<JmapSetResponse> {
+    return this.patchEmails(accountId, { [emailId]: { "keywords/$seen": read ? true : null } });
   }
 
-  async batchMarkAsRead(accountId: AccountId, emailIds: readonly string[], read = true): Promise<void> {
+  async batchMarkAsRead(accountId: AccountId, emailIds: readonly string[], read = true): Promise<JmapSetResponse> {
     const updates: Record<string, EmailUpdate> = {};
     const value = read ? true : null;
     for (const emailId of emailIds) {
       updates[emailId] = { "keywords/$seen": value };
     }
 
-    await this.patchEmails(accountId, updates);
+    return this.patchEmails(accountId, updates);
   }
 
-  async toggleStar(accountId: AccountId, emailId: string, starred: boolean): Promise<void> {
-    await this.patchEmails(accountId, { [emailId]: { "keywords/$flagged": starred ? true : null } });
+  async toggleStar(accountId: AccountId, emailId: string, starred: boolean): Promise<JmapSetResponse> {
+    return this.patchEmails(accountId, { [emailId]: { "keywords/$flagged": starred ? true : null } });
   }
 
-  async move(accountId: AccountId, emailId: string, mailboxId: MailboxId): Promise<void> {
-    await this.patchEmails(accountId, { [emailId]: { mailboxIds: { [mailboxId.value]: true } } });
+  async move(accountId: AccountId, emailId: string, mailboxId: MailboxId): Promise<JmapSetResponse> {
+    return this.patchEmails(accountId, { [emailId]: { mailboxIds: { [mailboxId.value]: true } } });
   }
 
-  async moveMany(accountId: AccountId, emailIds: readonly string[], mailboxId: MailboxId): Promise<void> {
+  async moveMany(accountId: AccountId, emailIds: readonly string[], mailboxId: MailboxId): Promise<JmapSetResponse> {
     const updates: Record<string, EmailUpdate> = {};
     for (const emailId of emailIds) {
       updates[emailId] = { mailboxIds: { [mailboxId.value]: true } };
     }
 
-    await this.patchEmails(accountId, updates);
+    return this.patchEmails(accountId, updates);
   }
 
-  async destroy(accountId: AccountId, emailId: string): Promise<void> {
-    await this.destroyMany(accountId, [emailId]);
+  async destroy(accountId: AccountId, emailId: string): Promise<JmapSetResponse> {
+    return this.destroyMany(accountId, [emailId]);
   }
 
-  async destroyMany(accountId: AccountId, emailIds: readonly string[]): Promise<void> {
-    const response = await this.client.invoke<EmailSetRequest, import("../core/set").JmapSetResponse>(
+  async destroyMany(accountId: AccountId, emailIds: readonly string[]): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
       new EmailSet({
         accountId: accountId.value,
         destroy: emailIds,
@@ -486,6 +482,8 @@ export class JmapMail {
         throw new Error(error.description || `Failed to delete email ${emailId}`);
       }
     }
+
+    return response;
   }
 
   async queryTagCounts(accountId: AccountId, tags: readonly string[]): Promise<Record<string, number>> {
@@ -510,7 +508,6 @@ export class JmapMail {
 
   async createDraft(options: {
     accountId: AccountId;
-    clientId: string;
     draftsMailboxId: MailboxId;
     from: JmapEmailAddress[];
     to: JmapEmailAddress[];
@@ -519,12 +516,12 @@ export class JmapMail {
     cc?: JmapEmailAddress[];
     bcc?: JmapEmailAddress[];
     attachments?: Array<{ blobId: string; type: string; name: string }>;
-  }): Promise<string> {
-    const response = await this.client.invoke<EmailSetRequest, import("../core/set").JmapSetResponse>(
+  }): Promise<JmapCreated> {
+    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
       new EmailSet({
         accountId: options.accountId.value,
         create: {
-          [options.clientId]: {
+          [CREATION_ID]: {
             from: options.from,
             to: options.to,
             cc: options.cc,
@@ -545,17 +542,7 @@ export class JmapMail {
       }),
     );
 
-    const error = getSetError(response, "notCreated", options.clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create draft");
-    }
-
-    const createdId = response.created?.[options.clientId]?.id;
-    if (!createdId) {
-      throw new Error("Email/set did not return a draft id");
-    }
-
-    return createdId;
+    return createdOne(response, "draft");
   }
 
   async submit(
@@ -563,8 +550,8 @@ export class JmapMail {
     identityId: string,
     emailId: string,
     onSuccess?: Record<string, unknown>,
-  ): Promise<void> {
-    const response = await this.client.invoke<EmailSubmissionSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<EmailSubmissionSetRequest, JmapSetResponse>(
       new EmailSubmissionSet({
         accountId: accountId.value,
         create: {
@@ -582,13 +569,15 @@ export class JmapMail {
     if (error) {
       throw new Error(error.description || "Failed to submit email");
     }
+
+    return response;
   }
 
   private async patchEmails(
     accountId: AccountId,
     updates: Record<string, EmailUpdate>,
-  ): Promise<void> {
-    const response = await this.client.invoke<EmailSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
       new EmailSet({
         accountId: accountId.value,
         update: updates,
@@ -601,5 +590,7 @@ export class JmapMail {
         throw new Error(error.description || `Failed to update email ${emailId}`);
       }
     }
+
+    return response;
   }
 }

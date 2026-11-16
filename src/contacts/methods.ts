@@ -1,10 +1,14 @@
 import type { JmapMethod } from "../core/method";
 import { AccountId, CallId } from "../core/ids";
+import type { JmapSetResponse } from "../core/set";
 import type {
   AddressBookChangesRequest,
   AddressBookChangesResponse,
   AddressBookGetRequest,
   AddressBookGetResponse,
+  AddressBookSetRequest,
+  ContactCardParseRequest,
+  ContactCardParseResponse,
   ContactCardChangesRequest,
   ContactCardChangesResponse,
   ContactCardGetRequest,
@@ -91,8 +95,29 @@ export class ContactCardGet implements JmapMethod<ContactCardGetRequest, Contact
   }
 }
 
+export class AddressBookSet
+  implements JmapMethod<AddressBookSetRequest, JmapSetResponse>
+{
+  readonly methodName = "AddressBook/set";
+  readonly arguments: AddressBookSetRequest;
+
+  constructor(args: AddressBookSetRequest) {
+    this.arguments = args;
+  }
+}
+
+/** One vCard per blob as a card, not stored (Stalwart's and Cyrus' ContactCard/parse). */
+export class ContactCardParse implements JmapMethod<ContactCardParseRequest, ContactCardParseResponse> {
+  readonly methodName = "ContactCard/parse";
+  readonly arguments: ContactCardParseRequest;
+
+  constructor(args: ContactCardParseRequest) {
+    this.arguments = args;
+  }
+}
+
 export class ContactCardSet
-  implements JmapMethod<ContactCardSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<ContactCardSetRequest, JmapSetResponse>
 {
   readonly methodName = "ContactCard/set";
   readonly arguments: ContactCardSetRequest;

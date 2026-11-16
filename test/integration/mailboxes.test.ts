@@ -60,12 +60,12 @@ test("integration: queries seeded mailboxes and reports mailbox query changes de
   assert.ok(initialQuery.queryState, "expected initial mailbox query state");
   const initialIds = new Set(initialQuery.ids);
 
-  const firstMailboxId = await mail.createMailbox(context.accountId, createIntegrationId("mailbox-1"), {
+  const firstMailboxId = (await mail.createMailbox(context.accountId, {
     name: `${marker}-alpha`,
-  });
-  const secondMailboxId = await mail.createMailbox(context.accountId, createIntegrationId("mailbox-2"), {
+  })).id;
+  const secondMailboxId = (await mail.createMailbox(context.accountId, {
     name: `${marker}-beta`,
-  });
+  })).id;
 
   try {
     const query = await mail.queryMailboxes(context.accountId, {
@@ -106,9 +106,10 @@ test("integration: reports mailbox changes after creating a mailbox", { skip }, 
 
   assert.ok(baseline.state, "expected mailbox state");
 
-  const mailboxId = await mail.createMailbox(context.accountId, createIntegrationId("mailbox-changes"), {
+  const mailboxClientId = createIntegrationId("mailbox-changes");
+  const mailboxId = (await mail.createMailbox(context.accountId, {
     name: createIntegrationId("Mailbox Changes"),
-  });
+  })).id;
 
   try {
     const changes = await mail.getMailboxChanges(context.accountId, baseline.state);
@@ -122,9 +123,10 @@ test("integration: updates a created mailbox", { skip }, async () => {
   const { context, mail } = await createMailIntegrationContext();
   const createdName = createIntegrationId("mailbox-update-created");
   const updatedName = createIntegrationId("mailbox-update-updated");
-  const mailboxId = await mail.createMailbox(context.accountId, createIntegrationId("mailbox-update"), {
+  const mailboxClientId = createIntegrationId("mailbox-update");
+  const mailboxId = (await mail.createMailbox(context.accountId, {
     name: createdName,
-  });
+  })).id;
 
   try {
     await mail.updateMailbox(context.accountId, mailboxId, {

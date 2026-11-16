@@ -39,11 +39,11 @@ test("integration: creates a calendar when calendars is supported", { skip }, as
   if (!setup) return;
   const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("create-calendar");
-  const calendarId = await calendarsClient.create(context.accountId, clientId, {
+  const calendarId = (await calendarsClient.create(context.accountId, {
     name: `Integration ${clientId}`,
     color: "#336699",
     timeZone: "UTC",
-  });
+  })).id;
 
   try {
     assert.equal(typeof calendarId, "string");
@@ -58,11 +58,11 @@ test("integration: updates a calendar when calendars is supported", { skip }, as
   if (!setup) return;
   const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("update-calendar");
-  const calendarId = await calendarsClient.create(context.accountId, clientId, {
+  const calendarId = (await calendarsClient.create(context.accountId, {
     name: `Original ${clientId}`,
     color: "#336699",
     timeZone: "UTC",
-  });
+  })).id;
 
   try {
     const updatedName = `Updated ${clientId}`;
@@ -86,11 +86,11 @@ test("integration: destroys a calendar when calendars is supported", { skip }, a
   if (!setup) return;
   const { context, calendarsClient } = setup;
   const clientId = createIntegrationId("destroy-calendar");
-  const calendarId = await calendarsClient.create(context.accountId, clientId, {
+  const calendarId = (await calendarsClient.create(context.accountId, {
     name: `Destroy ${clientId}`,
     color: "#336699",
     timeZone: "UTC",
-  });
+  })).id;
 
   await calendarsClient.destroy(context.accountId, calendarId);
 
@@ -192,16 +192,14 @@ test("integration: queries seeded calendar events and reports query changes dete
   assert.deepEqual(initialQuery.ids, []);
   assert.ok(initialQuery.queryState, "expected initial calendar event query state");
 
-  const firstEventId = await calendarsClient.createEvent(
+  const firstEventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("query-event-1"),
     buildEventPayload(calendar.id, `${marker}-alpha`),
-  );
-  const secondEventId = await calendarsClient.createEvent(
+  )).id;
+  const secondEventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("query-event-2"),
     buildEventPayload(calendar.id, `${marker}-beta`),
-  );
+  )).id;
 
   try {
     const batch = context.client.batch();
@@ -254,11 +252,11 @@ test("integration: creates a calendar event when calendars is supported", { skip
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventId = await calendarsClient.createEvent(
+  const eventClientId = createClientId("create-event");
+  const eventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("create-event"),
     buildEventPayload(calendar.id, "Create event"),
-  );
+  )).id;
 
   try {
     assert.equal(typeof eventId, "string");
@@ -273,11 +271,11 @@ test("integration: gets a created calendar event when calendars is supported", {
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventId = await calendarsClient.createEvent(
+  const eventClientId = createClientId("get-event");
+  const eventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("get-event"),
     buildEventPayload(calendar.id, "Get event"),
-  );
+  )).id;
 
   try {
     const event = await calendarsClient.getEvent(
@@ -300,11 +298,11 @@ test("integration: updates a calendar event when calendars is supported", { skip
   const { context, calendarsClient, calendar } = setup;
 
   const updatedTitle = `Updated event ${Date.now()}`;
-  const eventId = await calendarsClient.createEvent(
+  const eventClientId = createClientId("update-event");
+  const eventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("update-event"),
     buildEventPayload(calendar.id, "Original event"),
-  );
+  )).id;
 
   try {
     await calendarsClient.updateEvent(context.accountId, eventId, {
@@ -330,11 +328,11 @@ test("integration: destroys a calendar event when calendars is supported", { ski
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventId = await calendarsClient.createEvent(
+  const eventClientId = createClientId("destroy-event");
+  const eventId = (await calendarsClient.createEvent(
     context.accountId,
-    createClientId("destroy-event"),
     buildEventPayload(calendar.id, "Destroy event"),
-  );
+  )).id;
 
   await calendarsClient.destroyEvent(context.accountId, eventId);
 

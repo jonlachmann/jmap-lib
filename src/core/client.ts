@@ -3,7 +3,7 @@ import type { JmapMethod } from "./method";
 import { JmapProtocolError, JmapResponse, type RawJmapResponse } from "./response";
 
 type FetchLike = typeof fetch;
-type RawMethodCall = [string, unknown, string];
+export type RawMethodCall = [string, unknown, string];
 type JmapRequestOptions = {
   capabilities?: readonly string[];
 };
@@ -28,12 +28,19 @@ export class JmapNetworkError extends Error {
   }
 }
 
+/**
+ * Sees every request's method calls with the response the server gave them, before the caller does, which waits for
+ * it: so an application can keep its caches up with what each request did, a write's answer included (RFC 8620 5.3).
+ */
+export type JmapResponseObserver = (methodCalls: readonly RawMethodCall[], response: RawJmapResponse) => void | Promise<void>;
+
 type JmapClientOptions = {
   endpoint: string;
   accessToken?: string;
   authorizationHeader?: string;
   capabilities: readonly string[];
   fetch?: FetchLike;
+  onResponse?: JmapResponseObserver;
 };
 
 export class JmapBatch {
@@ -70,9 +77,11 @@ export class JmapClient {
   private readonly authorizationHeader: string;
   private readonly capabilities: string[];
   private readonly fetchImpl: FetchLike;
+  private readonly onResponse?: JmapResponseObserver;
 
   constructor(options: JmapClientOptions) {
     this.endpoint = options.endpoint;
+    this.onResponse = options.onResponse;
     this.capabilities = [...options.capabilities];
     this.fetchImpl = options.fetch ?? fetch.bind(globalThis);
     this.authorizationHeader = options.authorizationHeader ?? (
@@ -133,7 +142,17 @@ export class JmapClient {
     return response.get<Response>(callId, method.methodName);
   }
 
-  private async send(methodCalls: RawMethodCall[], options?: JmapRequestOptions): Promise<JmapResponse> {
+  /**
+   * Sends method calls as given and returns the response as the server gave it, a method's error among the others:
+   * for a caller that handles each call on its own, such as one sending changes kept while offline.
+   *
+   * @param options.createdIds Creation ids from requests before it, so a call can name what they created as "#id"
+   * (RFC 8620 3.3); the response has them back, with this request's added.
+   */
+  async sendRaw(
+    methodCalls: readonly RawMethodCall[],
+    options?: JmapRequestOptions & { createdIds?: Record<string, string> },
+  ): Promise<RawJmapResponse> {
     let response: globalThis.Response;
     let rawBody: string;
     try {
@@ -146,6 +165,7 @@ export class JmapClient {
         body: JSON.stringify({
           using: options?.capabilities ?? this.capabilities,
           methodCalls,
+          createdIds: options?.createdIds,
         }),
       });
       rawBody = await response.text();
@@ -163,8 +183,12 @@ export class JmapClient {
     } catch {
       throw new Error("Invalid JSON response from JMAP endpoint");
     }
+    await this.onResponse?.(methodCalls, parsed);
+    return parsed;
+  }
 
-    const jmapResponse = new JmapResponse(parsed);
+  private async send(methodCalls: RawMethodCall[], options?: JmapRequestOptions): Promise<JmapResponse> {
+    const jmapResponse = new JmapResponse(await this.sendRaw(methodCalls, options));
 
     for (const [methodName, payload, callId] of jmapResponse.allRaw()) {
       if (methodName === "error") {

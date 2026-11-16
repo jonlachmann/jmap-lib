@@ -2,7 +2,7 @@ import { CORE_CALENDARS_CAPABILITIES, CORE_CALENDARS_PARSE_CAPABILITIES } from "
 import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
 import type { FilterOperatorCondition } from "../core/query";
-import { getSetError } from "../core/set";
+import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
 import {
   CalendarChanges,
   CalendarEventChanges,
@@ -12,6 +12,7 @@ import {
   CalendarEventQueryChanges,
   CalendarEventSet,
   CalendarGet,
+  ParticipantIdentityGet,
   CalendarSet,
 } from "./methods";
 import type {
@@ -35,7 +36,11 @@ import type {
   CalendarEventSetRequest,
   CalendarGetRequest,
   CalendarGetResponse,
+  ParticipantIdentity,
+  ParticipantIdentityGetRequest,
+  ParticipantIdentityGetResponse,
   CalendarSetRequest,
+  CalendarUpdate,
 } from "./types";
 
 export const DEFAULT_CALENDAR_EVENT_PROPERTIES = [
@@ -78,6 +83,15 @@ export class JmapCalendars {
     return response.list;
   }
 
+  /** The addresses the user acts as in the account (draft-ietf-jmap-calendars 3): the owner's for one who acts for them. */
+  async listParticipantIdentities(accountId: AccountId): Promise<ParticipantIdentity[]> {
+    const response = await this.client.invoke<ParticipantIdentityGetRequest, ParticipantIdentityGetResponse>(
+      ParticipantIdentityGet.all(accountId),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
+    return response.list;
+  }
+
   /** The calendars with the state they are at, to sync changes from. */
   async getAll(accountId: AccountId): Promise<CalendarGetResponse> {
     return this.client.invoke<CalendarGetRequest, CalendarGetResponse>(CalendarGet.all(accountId), {
@@ -110,30 +124,20 @@ export class JmapCalendars {
     });
   }
 
-  async create(accountId: AccountId, clientId: string, calendar: Partial<Calendar>): Promise<string> {
-    const response = await this.client.invoke<CalendarSetRequest, import("../core/set").JmapSetResponse>(
+  async create(accountId: AccountId, calendar: Partial<Calendar>): Promise<JmapCreated> {
+    const response = await this.client.invoke<CalendarSetRequest, JmapSetResponse>(
       new CalendarSet({
         accountId: accountId.value,
-        create: { [clientId]: calendar },
+        create: { [CREATION_ID]: calendar },
       }),
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create calendar");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("Calendar/set did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "calendar");
   }
 
-  async update(accountId: AccountId, calendarId: string, updates: Partial<Calendar>): Promise<void> {
-    const response = await this.client.invoke<CalendarSetRequest, import("../core/set").JmapSetResponse>(
+  async update(accountId: AccountId, calendarId: string, updates: CalendarUpdate): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<CalendarSetRequest, JmapSetResponse>(
       new CalendarSet({
         accountId: accountId.value,
         update: { [calendarId]: updates },
@@ -145,10 +149,12 @@ export class JmapCalendars {
     if (error) {
       throw new Error(error.description || "Failed to update calendar");
     }
+
+    return response;
   }
 
-  async destroy(accountId: AccountId, calendarId: string): Promise<void> {
-    const response = await this.client.invoke<CalendarSetRequest, import("../core/set").JmapSetResponse>(
+  async destroy(accountId: AccountId, calendarId: string): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<CalendarSetRequest, JmapSetResponse>(
       new CalendarSet({
         accountId: accountId.value,
         destroy: [calendarId],
@@ -160,6 +166,8 @@ export class JmapCalendars {
     if (error) {
       throw new Error(error.description || "Failed to delete calendar");
     }
+
+    return response;
   }
 
   async listEvents(
@@ -292,30 +300,19 @@ export class JmapCalendars {
 
   async createEvent(
     accountId: AccountId,
-    clientId: string,
     event: Partial<CalendarEvent>,
     sendSchedulingMessages?: boolean,
-  ): Promise<string> {
-    const response = await this.client.invoke<CalendarEventSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapCreated> {
+    const response = await this.client.invoke<CalendarEventSetRequest, JmapSetResponse>(
       new CalendarEventSet({
         accountId: accountId.value,
-        create: { [clientId]: event },
+        create: { [CREATION_ID]: event },
         sendSchedulingMessages,
       }),
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create calendar event");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("CalendarEvent/set did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "calendar event");
   }
 
   async updateEvent(
@@ -323,8 +320,8 @@ export class JmapCalendars {
     eventId: string,
     updates: Partial<CalendarEvent>,
     sendSchedulingMessages?: boolean,
-  ): Promise<void> {
-    const response = await this.client.invoke<CalendarEventSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<CalendarEventSetRequest, JmapSetResponse>(
       new CalendarEventSet({
         accountId: accountId.value,
         update: { [eventId]: updates },
@@ -337,10 +334,12 @@ export class JmapCalendars {
     if (error) {
       throw new Error(error.description || "Failed to update calendar event");
     }
+
+    return response;
   }
 
-  async destroyEvent(accountId: AccountId, eventId: string, sendSchedulingMessages?: boolean): Promise<void> {
-    const response = await this.client.invoke<CalendarEventSetRequest, import("../core/set").JmapSetResponse>(
+  async destroyEvent(accountId: AccountId, eventId: string, sendSchedulingMessages?: boolean): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<CalendarEventSetRequest, JmapSetResponse>(
       new CalendarEventSet({
         accountId: accountId.value,
         destroy: [eventId],
@@ -353,13 +352,20 @@ export class JmapCalendars {
     if (error) {
       throw new Error(error.description || "Failed to delete calendar event");
     }
+
+    return response;
   }
 
-  async parse(accountId: AccountId, blobId: string): Promise<Partial<CalendarEvent>[]> {
+  async parse(
+    accountId: AccountId,
+    blobId: string,
+    properties?: readonly CalendarEventProperty[],
+  ): Promise<Partial<CalendarEvent>[]> {
     const response = await this.client.invoke<CalendarEventParseRequest, CalendarEventParseResponse>(
       new CalendarEventParse({
         accountId: accountId.value,
         blobIds: [blobId],
+        properties,
       }),
       { capabilities: CORE_CALENDARS_PARSE_CAPABILITIES },
     );

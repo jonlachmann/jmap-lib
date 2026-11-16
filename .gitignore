@@ -13,3 +13,6 @@ old/
 
 *.log
 npm-debug.log*
+
+rfcs/
+docs/

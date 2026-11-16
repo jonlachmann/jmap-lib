@@ -44,10 +44,10 @@ test("integration: creates, updates, activates, deactivates, and destroys a siev
     body: validSieveScript(`${clientId}-updated`),
   });
 
-  const scriptId = await sieve.create(context.accountId, clientId, {
+  const scriptId = (await sieve.create(context.accountId, {
     name: `Integration ${clientId}`,
     blobId: initialBlobId,
-  });
+  })).id;
 
   try {
     let scripts = await sieve.list(context.accountId);

@@ -3,8 +3,8 @@ import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
 import type { JmapChangesResponse } from "../core/changes";
 import type { FilterOperatorCondition } from "../core/query";
-import type { JmapSetResponse } from "../core/set";
-import { getSetError } from "../core/set";
+import type { JmapCreated, JmapSetResponse } from "../core/set";
+import { CREATION_ID, createdOne, getSetError } from "../core/set";
 import {
   NoteBookChanges,
   NoteBookGet,
@@ -93,35 +93,24 @@ export class JmapNotes {
 
   async createNoteBook(
     accountId: AccountId,
-    clientId: string,
     noteBook: NoteBookCreate,
-  ): Promise<string> {
+  ): Promise<JmapCreated> {
     const response = await this.client.invoke<NoteBookSetRequest, JmapSetResponse>(
       new NoteBookSet({
         accountId: accountId.value,
-        create: { [clientId]: noteBook },
+        create: { [CREATION_ID]: noteBook },
       }),
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create notebook");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("NoteBook/set did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "notebook");
   }
 
   async updateNoteBook(
     accountId: AccountId,
     noteBookId: string,
     updates: NoteBookUpdate,
-  ): Promise<void> {
+  ): Promise<JmapSetResponse> {
     const response = await this.client.invoke<NoteBookSetRequest, JmapSetResponse>(
       new NoteBookSet({
         accountId: accountId.value,
@@ -134,13 +123,15 @@ export class JmapNotes {
     if (error) {
       throw new Error(error.description || "Failed to update notebook");
     }
+
+    return response;
   }
 
   async destroyNoteBook(
     accountId: AccountId,
     noteBookId: string,
     onDestroyRemoveNotes?: boolean,
-  ): Promise<void> {
+  ): Promise<JmapSetResponse> {
     const response = await this.client.invoke<NoteBookSetRequest, JmapSetResponse>(
       new NoteBookSet({
         accountId: accountId.value,
@@ -154,6 +145,8 @@ export class JmapNotes {
     if (error) {
       throw new Error(error.description || "Failed to delete notebook");
     }
+
+    return response;
   }
 
   // --- Note operations ---
@@ -280,35 +273,24 @@ export class JmapNotes {
 
   async createNote(
     accountId: AccountId,
-    clientId: string,
     note: NoteCreate,
-  ): Promise<string> {
+  ): Promise<JmapCreated> {
     const response = await this.client.invoke<NoteSetRequest, JmapSetResponse>(
       new NoteSet({
         accountId: accountId.value,
-        create: { [clientId]: note },
+        create: { [CREATION_ID]: note },
       }),
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create note");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("Note/set did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "note");
   }
 
   async updateNote(
     accountId: AccountId,
     noteId: string,
     updates: NoteUpdate,
-  ): Promise<void> {
+  ): Promise<JmapSetResponse> {
     const response = await this.client.invoke<NoteSetRequest, JmapSetResponse>(
       new NoteSet({
         accountId: accountId.value,
@@ -321,6 +303,8 @@ export class JmapNotes {
     if (error) {
       throw new Error(error.description || "Failed to update note");
     }
+
+    return response;
   }
 
   async setFlagged(accountId: AccountId, noteId: string, flagged: boolean): Promise<void> {
@@ -331,7 +315,7 @@ export class JmapNotes {
     await this.updateNote(accountId, noteId, { noteBookId });
   }
 
-  async destroyNote(accountId: AccountId, noteId: string): Promise<void> {
+  async destroyNote(accountId: AccountId, noteId: string): Promise<JmapSetResponse> {
     const response = await this.client.invoke<NoteSetRequest, JmapSetResponse>(
       new NoteSet({
         accountId: accountId.value,
@@ -344,37 +328,28 @@ export class JmapNotes {
     if (error) {
       throw new Error(error.description || "Failed to delete note");
     }
+
+    return response;
   }
 
   async copyNote(
     accountId: AccountId,
     fromAccountId: AccountId,
-    clientId: string,
     note: NoteCreate & { id: string },
     options?: {
       onSuccessDestroyOriginal?: boolean;
     },
-  ): Promise<string> {
+  ): Promise<JmapCreated<NoteCopyResponse>> {
     const response = await this.client.invoke<NoteCopyRequest, NoteCopyResponse>(
       new NoteCopy({
         fromAccountId: fromAccountId.value,
         accountId: accountId.value,
-        create: { [clientId]: note },
+        create: { [CREATION_ID]: note },
         onSuccessDestroyOriginal: options?.onSuccessDestroyOriginal,
       }),
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const notCreated = response.notCreated?.[clientId];
-    if (notCreated) {
-      throw new Error(notCreated.description || "Failed to copy note");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("Note/copy did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "note");
   }
 }

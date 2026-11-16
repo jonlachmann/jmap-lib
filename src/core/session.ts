@@ -1,4 +1,5 @@
 import { JMAP_CORE_CAPABILITY } from "./capabilities";
+import { JmapHttpError } from "./client";
 type FetchLike = typeof fetch;
 
 export interface JmapSessionAccount {
@@ -29,6 +30,9 @@ export interface JmapSession {
   primaryAccounts?: Record<string, string>;
   accounts?: Record<string, JmapSessionAccount>;
   username?: string;
+  /** Changes when the session does, as accounts shared with the user come and go (RFC 8620 2); every response names
+   *  the current one as its sessionState. */
+  state?: string;
 }
 
 type DiscoverJmapSessionOptions = {
@@ -56,7 +60,8 @@ export async function discoverJmapSession(options: DiscoverJmapSessionOptions): 
   const rawBody = await response.text();
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch JMAP session from ${sessionUrl}: HTTP ${response.status} ${rawBody}`);
+    // Typed, so a caller can tell a session refused (401) from a server failing; the body names the URL that failed
+    throw new JmapHttpError(response.status, `${sessionUrl}: ${rawBody}`);
   }
 
   let session: unknown;

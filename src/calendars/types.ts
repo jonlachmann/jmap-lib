@@ -4,6 +4,18 @@ import type { JmapPatchObject } from "../core/patch";
 import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
 import type { JmapSetArgs } from "../core/set";
 
+/** draft-ietf-jmap-calendars 4: what a user may do with a calendar. */
+export interface CalendarRights {
+  mayReadFreeBusy: boolean;
+  mayReadItems: boolean;
+  mayWriteAll: boolean;
+  mayWriteOwn: boolean;
+  mayUpdatePrivate: boolean;
+  mayRSVP: boolean;
+  mayShare: boolean;
+  mayDelete: boolean;
+}
+
 export interface Calendar {
   id: string;
   name: string;
@@ -13,7 +25,12 @@ export interface Calendar {
   isSubscribed?: boolean;
   isVisible?: boolean;
   isDefault?: boolean;
+  /** Which of its events count toward its owner's availability (draft-ietf-jmap-calendars 4). */
+  includeInAvailability?: "all" | "attending" | "none";
   timeZone?: string | null;
+  /** RFC 9670 4: the principals it is shared with and their rights; null when with no one. */
+  shareWith?: Record<string, Partial<CalendarRights>> | null;
+  myRights?: CalendarRights;
 }
 
 export type CalendarProperty =
@@ -25,12 +42,17 @@ export type CalendarProperty =
   | "isSubscribed"
   | "isVisible"
   | "isDefault"
-  | "timeZone";
+  | "includeInAvailability"
+  | "timeZone"
+  | "shareWith"
+  | "myRights";
 
 export interface CalendarEvent {
   id: string;
   calendarIds: Record<string, boolean>;
   uid: string;
+  /** RFC 8984 4.1.7: raised by one with every change, except one to participants only. */
+  sequence?: number;
   title?: string;
   description?: string;
   descriptionContentType?: string;
@@ -81,6 +103,7 @@ export interface CalendarEventQuerySort extends JmapComparator<CalendarEventQuer
 export type CalendarEventProperty =
   | "id"
   | "uid"
+  | "sequence"
   | "calendarIds"
   | "title"
   | "description"
@@ -107,7 +130,9 @@ export type CalendarEventProperty =
   | "recurrenceId"
   | "recurrenceIdTimeZone"
   | "baseEventId"
-  | "isOrigin";
+  | "isOrigin"
+  // RFC 8984 3.3: a vendor's property, named for its domain ("example.com:property")
+  | `${string}:${string}`;
 
 export interface CalendarGetRequest extends JmapGetArgs<CalendarProperty> {}
 
@@ -117,7 +142,7 @@ export interface CalendarGetResponse {
   list: Calendar[];
 }
 
-export interface CalendarMutable {
+export type CalendarMutable = {
   name?: string;
   description?: string | null;
   color?: string | null;
@@ -125,8 +150,10 @@ export interface CalendarMutable {
   isSubscribed?: boolean;
   isVisible?: boolean;
   isDefault?: boolean;
+  includeInAvailability?: "all" | "attending" | "none";
   timeZone?: string | null;
-}
+  shareWith?: Record<string, Partial<CalendarRights>> | null;
+};
 
 export interface CalendarCreate extends CalendarMutable {}
 
@@ -176,7 +203,7 @@ export interface CalendarEventGetResponse {
   notFound?: string[];
 }
 
-export interface CalendarEventMutable {
+export type CalendarEventMutable = {
   calendarIds?: Record<string, boolean>;
   uid?: string;
   title?: string;
@@ -203,7 +230,7 @@ export interface CalendarEventMutable {
   recurrenceOverrides?: Record<string, unknown> | null;
   recurrenceId?: string | null;
   isOrigin?: boolean;
-}
+};
 
 export interface CalendarEventCreate extends CalendarEventMutable {}
 
@@ -216,6 +243,7 @@ export interface CalendarEventSetRequest extends JmapSetArgs<CalendarEventCreate
 export interface CalendarEventParseRequest {
   accountId: string;
   blobIds: readonly string[];
+  properties?: readonly CalendarEventProperty[];
 }
 
 export interface CalendarEventParseResponse {
@@ -223,4 +251,23 @@ export interface CalendarEventParseResponse {
   parsed?: Record<string, Partial<CalendarEvent> | Partial<CalendarEvent>[]>;
   notParsable?: string[];
   notFound?: string[];
+}
+
+/** draft-ietf-jmap-calendars 3: an address the user acts as in the account, as organizer or attendee: their own, or the
+ *  account owner's for one who acts for them. */
+export interface ParticipantIdentity {
+  id: string;
+  name?: string | null;
+  calendarAddress: string;
+  isDefault?: boolean;
+}
+
+export type ParticipantIdentityProperty = keyof ParticipantIdentity;
+
+export interface ParticipantIdentityGetRequest extends JmapGetArgs<ParticipantIdentityProperty> {}
+
+export interface ParticipantIdentityGetResponse {
+  accountId: string;
+  state: string;
+  list: ParticipantIdentity[];
 }

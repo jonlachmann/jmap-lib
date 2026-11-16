@@ -6,6 +6,7 @@ import {
   CORE_CALENDARS_CAPABILITIES,
   CORE_CALENDARS_PARSE_CAPABILITIES,
   CORE_CONTACTS_CAPABILITIES,
+  CORE_CONTACTS_PARSE_CAPABILITIES,
   CORE_MAIL_SUBMISSION_CAPABILITIES,
   CORE_MAIL_VACATION_CAPABILITIES,
   CORE_SIEVE_CAPABILITIES,
@@ -157,6 +158,35 @@ test("JmapContacts.listAddressBooks uses contacts capabilities", async () => {
   assert.deepEqual(using, [...CORE_CONTACTS_CAPABILITIES]);
 });
 
+test("JmapContacts.parseCards uploads and parses in one request, in the order given", async () => {
+  let request: { using: string[]; methodCalls: [string, any, string][] } | undefined;
+  const contacts = new JmapContacts(new JmapClient({
+    endpoint: "https://example.test/jmap",
+    accessToken: "secret",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async (_url, init) => {
+      request = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          methodResponses: [
+            ["Blob/upload", { accountId: "acc", created: { card0: { id: "b0", type: "text/vcard", size: 3 }, card1: { id: "b1", type: "text/vcard", size: 3 } } }, "0"],
+            ["ContactCard/parse", { accountId: "acc", parsed: { b0: { name: { full: "Anna" } } }, notParsable: ["b1"] }, "1"],
+          ],
+        }),
+        { status: 200 },
+      );
+    },
+  }));
+
+  const result = await contacts.parseCards(AccountId.of("acc"), [new TextEncoder().encode("one"), new TextEncoder().encode("two")]);
+
+  assert.deepEqual(result, [{ name: { full: "Anna" } }, null]);
+  assert.deepEqual(request?.using, [...CORE_CONTACTS_PARSE_CAPABILITIES]);
+  assert.deepEqual(request?.methodCalls.map((call) => call[0]), ["Blob/upload", "ContactCard/parse"]);
+  assert.equal(request?.methodCalls[0][1].create.card0.data[0]["data:asBase64"], btoa("one"));
+  assert.deepEqual(request?.methodCalls[1][1].blobIds, ["#card0", "#card1"]);
+});
+
 test("JmapCalendars.list uses calendar capabilities", async () => {
   let using: string[] | undefined;
   const calendars = new JmapCalendars(new JmapClient({
@@ -298,7 +328,7 @@ test("JmapMail mailbox query and set helpers delegate to mailbox methods", async
   const responses = [
     { methodResponses: [["Mailbox/query", { accountId: "acc", queryState: "q1", canCalculateChanges: true, position: 0, ids: ["mbox-1"], total: 1 }, "0"]] },
     { methodResponses: [["Mailbox/queryChanges", { accountId: "acc", oldQueryState: "q1", newQueryState: "q2", removed: [], added: [{ id: "mbox-2", index: 1 }], total: 2 }, "0"]] },
-    { methodResponses: [["Mailbox/set", { accountId: "acc", created: { mailbox: { id: "mbox-3" } } }, "0"]] },
+    { methodResponses: [["Mailbox/set", { accountId: "acc", created: { new: { id: "mbox-3" } } }, "0"]] },
     { methodResponses: [["Mailbox/set", { accountId: "acc", updated: { "mbox-3": null } }, "0"]] },
     { methodResponses: [["Mailbox/set", { accountId: "acc", destroyed: ["mbox-3"] }, "0"]] },
   ];
@@ -328,9 +358,9 @@ test("JmapMail mailbox query and set helpers delegate to mailbox methods", async
     sinceQueryState: "q1",
     calculateTotal: true,
   });
-  const mailboxId = await mail.createMailbox(AccountId.of("acc"), "mailbox", {
+  const mailboxId = (await mail.createMailbox(AccountId.of("acc"), {
     name: "Projects",
-  });
+  })).id;
   await mail.updateMailbox(AccountId.of("acc"), mailboxId, { isSubscribed: true });
   await mail.destroyMailbox(AccountId.of("acc"), mailboxId);
 
@@ -361,7 +391,7 @@ test("JmapMail mailbox query and set helpers delegate to mailbox methods", async
       methodName: "Mailbox/set",
       args: {
         accountId: "acc",
-        create: { mailbox: { name: "Projects" } },
+        create: { new: { name: "Projects" } },
       },
     },
     {

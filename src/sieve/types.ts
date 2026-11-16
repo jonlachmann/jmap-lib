@@ -19,10 +19,10 @@ export interface SieveScriptGetResponse {
   list: SieveScript[];
 }
 
-export interface SieveScriptMutable {
+export type SieveScriptMutable = {
   name?: string;
   blobId?: string;
-}
+};
 
 export interface SieveScriptCreate extends SieveScriptMutable {
   name: string;

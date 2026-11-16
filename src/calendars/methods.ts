@@ -18,6 +18,8 @@ import type {
   CalendarGetResponse,
   CalendarSetRequest,
   CalendarEventProperty,
+  ParticipantIdentityGetRequest,
+  ParticipantIdentityGetResponse,
 } from "./types";
 
 export class CalendarGet implements JmapMethod<CalendarGetRequest, CalendarGetResponse> {
@@ -138,5 +140,18 @@ export class CalendarEventParse
 
   constructor(args: CalendarEventParseRequest) {
     this.arguments = args;
+  }
+}
+
+export class ParticipantIdentityGet implements JmapMethod<ParticipantIdentityGetRequest, ParticipantIdentityGetResponse> {
+  readonly methodName = "ParticipantIdentity/get";
+  readonly arguments: ParticipantIdentityGetRequest;
+
+  constructor(args: ParticipantIdentityGetRequest) {
+    this.arguments = args;
+  }
+
+  static all(accountId: AccountId): ParticipantIdentityGet {
+    return new ParticipantIdentityGet({ accountId: accountId.value, ids: null });
   }
 }

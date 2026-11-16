@@ -3,6 +3,10 @@ import { CallId } from "./ids";
 export type RawMethodResponse = [string, unknown, string];
 export type RawJmapResponse = {
   methodResponses?: RawMethodResponse[];
+  /** The request's creation ids, with those it created added (RFC 8620 3.4); only when the request gave some. */
+  createdIds?: Record<string, string>;
+  /** The session's state, which moves when the session does, as accounts shared with the user come and go (RFC 8620 3.4). */
+  sessionState?: string;
 };
 
 /** The method-level errors of RFC 8620 (3.6.2 and section 5). */

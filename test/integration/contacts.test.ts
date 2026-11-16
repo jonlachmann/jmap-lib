@@ -105,16 +105,14 @@ test("integration: queries seeded contacts and reports query changes determinist
   assert.deepEqual(initialQuery.ids, []);
   assert.ok(initialQuery.queryState, "expected initial contact query state");
 
-  const firstContactId = await contacts.create(
+  const firstContactId = (await contacts.create(
     context.accountId,
-    createClientId("query-contact-1"),
     buildContactPayload(addressBook.id, `${marker}-alpha`),
-  );
-  const secondContactId = await contacts.create(
+  )).id;
+  const secondContactId = (await contacts.create(
     context.accountId,
-    createClientId("query-contact-2"),
     buildContactPayload(addressBook.id, `${marker}-beta`),
-  );
+  )).id;
 
   try {
     const batch = context.client.batch();
@@ -165,11 +163,11 @@ test("integration: creates a contact when contacts is supported", { skip }, asyn
   if (!setup) return;
   const { context, contacts, addressBook } = setup;
 
-  const contactId = await contacts.create(
+  const contactClientId = createClientId("create-contact");
+  const contactId = (await contacts.create(
     context.accountId,
-    createClientId("create-contact"),
     buildContactPayload(addressBook.id, "Create contact"),
-  );
+  )).id;
 
   try {
     assert.equal(typeof contactId, "string");
@@ -184,11 +182,11 @@ test("integration: gets a created contact when contacts is supported", { skip },
   if (!setup) return;
   const { context, contacts, addressBook } = setup;
 
-  const contactId = await contacts.create(
+  const contactClientId = createClientId("get-contact");
+  const contactId = (await contacts.create(
     context.accountId,
-    createClientId("get-contact"),
     buildContactPayload(addressBook.id, "Get contact"),
-  );
+  )).id;
 
   try {
     const contact = await contacts.get(context.accountId, contactId);
@@ -207,11 +205,11 @@ test("integration: updates a contact when contacts is supported", { skip }, asyn
   const { context, contacts, addressBook } = setup;
 
   const updatedGivenName = `Updated-${Date.now()}`;
-  const contactId = await contacts.create(
+  const contactClientId = createClientId("update-contact");
+  const contactId = (await contacts.create(
     context.accountId,
-    createClientId("update-contact"),
     buildContactPayload(addressBook.id, "Update contact"),
-  );
+  )).id;
 
   try {
     await contacts.update(context.accountId, contactId, {
@@ -225,7 +223,7 @@ test("integration: updates a contact when contacts is supported", { skip }, asyn
 
     const contact = await contacts.get(context.accountId, contactId);
     assert.ok(contact, "expected updated contact to be fetchable");
-    assert.equal(contact?.name?.components[0]?.value, updatedGivenName);
+    assert.equal(contact?.name?.components?.[0]?.value, updatedGivenName);
   } finally {
     await contacts.destroy(context.accountId, contactId);
   }
@@ -236,11 +234,11 @@ test("integration: destroys a contact when contacts is supported", { skip }, asy
   if (!setup) return;
   const { context, contacts, addressBook } = setup;
 
-  const contactId = await contacts.create(
+  const contactClientId = createClientId("destroy-contact");
+  const contactId = (await contacts.create(
     context.accountId,
-    createClientId("destroy-contact"),
     buildContactPayload(addressBook.id, "Destroy contact"),
-  );
+  )).id;
 
   await contacts.destroy(context.accountId, contactId);
 

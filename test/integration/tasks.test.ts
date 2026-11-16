@@ -35,10 +35,10 @@ test("integration: creates a task list when tasks is supported", { skip }, async
   if (!setup) return;
   const { context, tasksClient } = setup;
   const clientId = createIntegrationId("create-tasklist");
-  const taskListId = await tasksClient.createTaskList(context.accountId, clientId, {
+  const taskListId = (await tasksClient.createTaskList(context.accountId, {
     name: `Integration ${clientId}`,
     color: "#336699",
-  });
+  })).id;
 
   try {
     assert.equal(typeof taskListId, "string");
@@ -53,10 +53,10 @@ test("integration: updates a task list when tasks is supported", { skip }, async
   if (!setup) return;
   const { context, tasksClient } = setup;
   const clientId = createIntegrationId("update-tasklist");
-  const taskListId = await tasksClient.createTaskList(context.accountId, clientId, {
+  const taskListId = (await tasksClient.createTaskList(context.accountId, {
     name: `Original ${clientId}`,
     color: "#336699",
-  });
+  })).id;
 
   try {
     const updatedName = `Updated ${clientId}`;
@@ -80,10 +80,10 @@ test("integration: destroys a task list when tasks is supported", { skip }, asyn
   if (!setup) return;
   const { context, tasksClient } = setup;
   const clientId = createIntegrationId("destroy-tasklist");
-  const taskListId = await tasksClient.createTaskList(context.accountId, clientId, {
+  const taskListId = (await tasksClient.createTaskList(context.accountId, {
     name: `Destroy ${clientId}`,
     color: "#336699",
-  });
+  })).id;
 
   await tasksClient.destroyTaskList(context.accountId, taskListId, true);
 
@@ -109,7 +109,7 @@ test("integration: lists tasks when tasks is supported", { skip }, async (t) => 
   assert.ok(Array.isArray(tasks));
   for (const task of tasks.slice(0, 10)) {
     assert.equal(typeof task.id, "string");
-    assert.equal(typeof task.taskListIds, "object");
+    assert.equal(typeof task.taskListId, "string");
   }
 });
 
@@ -118,11 +118,11 @@ test("integration: creates a task when tasks is supported", { skip }, async (t) 
   if (!setup) return;
   const { context, tasksClient, taskList } = setup;
 
-  const taskId = await tasksClient.createTask(
+  const taskClientId = createClientId("create-task");
+  const taskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("create-task"),
     buildTaskPayload(taskList.id, "Create task"),
-  );
+  )).id;
 
   try {
     assert.equal(typeof taskId, "string");
@@ -137,11 +137,11 @@ test("integration: gets a created task when tasks is supported", { skip }, async
   if (!setup) return;
   const { context, tasksClient, taskList } = setup;
 
-  const taskId = await tasksClient.createTask(
+  const taskClientId = createClientId("get-task");
+  const taskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("get-task"),
     buildTaskPayload(taskList.id, "Get task"),
-  );
+  )).id;
 
   try {
     const task = await tasksClient.getTask(
@@ -152,7 +152,7 @@ test("integration: gets a created task when tasks is supported", { skip }, async
 
     assert.ok(task, "expected created task to be fetchable");
     assert.equal(task?.id, taskId);
-    assert.equal(task?.taskListIds[taskList.id], true);
+    assert.equal(task?.taskListId, taskList.id);
   } finally {
     await tasksClient.destroyTask(context.accountId, taskId);
   }
@@ -164,11 +164,11 @@ test("integration: updates a task when tasks is supported", { skip }, async (t) 
   const { context, tasksClient, taskList } = setup;
 
   const updatedTitle = `Updated task ${Date.now()}`;
-  const taskId = await tasksClient.createTask(
+  const taskClientId = createClientId("update-task");
+  const taskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("update-task"),
     buildTaskPayload(taskList.id, "Original task"),
-  );
+  )).id;
 
   try {
     await tasksClient.updateTask(context.accountId, taskId, {
@@ -194,11 +194,11 @@ test("integration: destroys a task when tasks is supported", { skip }, async (t)
   if (!setup) return;
   const { context, tasksClient, taskList } = setup;
 
-  const taskId = await tasksClient.createTask(
+  const taskClientId = createClientId("destroy-task");
+  const taskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("destroy-task"),
     buildTaskPayload(taskList.id, "Destroy task"),
-  );
+  )).id;
 
   await tasksClient.destroyTask(context.accountId, taskId);
 
@@ -247,7 +247,7 @@ test("integration: queries tasks with an operator filter when tasks is supported
 
   const response = await batch.send();
   const query = response.get<{ ids: string[] }>(queryCallId, "Task/query");
-  const tasks = response.get<{ list: Array<{ id: string; taskListIds: Record<string, boolean> }> }>(
+  const tasks = response.get<{ list: Array<{ id: string; taskListId: string }> }>(
     getCallId,
     "Task/get",
   ).list;
@@ -256,7 +256,7 @@ test("integration: queries tasks with an operator filter when tasks is supported
   assert.ok(tasks.length <= 10);
   for (const task of tasks) {
     assert.equal(typeof task.id, "string");
-    assert.equal(typeof task.taskListIds, "object");
+    assert.equal(typeof task.taskListId, "string");
   }
 });
 
@@ -282,16 +282,14 @@ test("integration: queries seeded tasks and reports query changes deterministica
   assert.deepEqual(initialQuery.ids, []);
   assert.ok(initialQuery.queryState, "expected initial task query state");
 
-  const firstTaskId = await tasksClient.createTask(
+  const firstTaskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("query-task-1"),
     buildTaskPayload(taskList.id, `${marker}-alpha`),
-  );
-  const secondTaskId = await tasksClient.createTask(
+  )).id;
+  const secondTaskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("query-task-2"),
     buildTaskPayload(taskList.id, `${marker}-beta`),
-  );
+  )).id;
 
   try {
     const batch = context.client.batch();
@@ -344,9 +342,9 @@ test("integration: tracks task list changes when tasks is supported", { skip }, 
   if (!setup) return;
   const { context, tasksClient } = setup;
   const clientId = createIntegrationId("changes-tasklist");
-  const taskListId = await tasksClient.createTaskList(context.accountId, clientId, {
+  const taskListId = (await tasksClient.createTaskList(context.accountId, {
     name: `Changes ${clientId}`,
-  });
+  })).id;
 
   try {
     const changes = await tasksClient.getTaskListChanges(context.accountId, "0");
@@ -362,11 +360,11 @@ test("integration: tracks task changes when tasks is supported", { skip }, async
   if (!setup) return;
   const { context, tasksClient, taskList } = setup;
 
-  const taskId = await tasksClient.createTask(
+  const taskClientId = createClientId("changes-task");
+  const taskId = (await tasksClient.createTask(
     context.accountId,
-    createClientId("changes-task"),
     buildTaskPayload(taskList.id, "Changes task"),
-  );
+  )).id;
 
   try {
     const changes = await tasksClient.getTaskChanges(context.accountId, "0");
@@ -383,7 +381,7 @@ function createClientId(prefix: string): string {
 
 function buildTaskPayload(taskListId: string, title: string) {
   return {
-    taskListIds: { [taskListId]: true },
+    taskListId,
     title,
     description: "Created by integration test",
   };

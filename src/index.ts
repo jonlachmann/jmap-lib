@@ -1,6 +1,9 @@
 export * from "./core/capabilities";
 export { JmapBatch, JmapClient, JmapHttpError, JmapNetworkError } from "./core/client";
+export type { JmapResponseObserver, RawMethodCall } from "./core/client";
 export { CoreEcho } from "./core/core-methods";
+export { BlobUpload } from "./core/blob";
+export type { BlobDataSource, BlobUploadObject, BlobUploadRequest, BlobUploadResponse, BlobUploadCreated } from "./core/blob";
 export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods";
 export { AccountId, CallId, MailboxId } from "./core/ids";
 export type { JmapChangesArgs, JmapChangesResponse } from "./core/changes";
@@ -23,9 +26,9 @@ export type {
   JmapQueryChangesArgs,
   JmapQueryChangesResponse,
 } from "./core/query";
-export { JmapProtocolError, JmapResponse, type JmapMethodErrorType } from "./core/response";
-export type { JmapMethodError, JmapSetArgs, JmapSetResponse } from "./core/set";
-export { getSetError } from "./core/set";
+export { JmapProtocolError, JmapResponse, type JmapMethodErrorType, type RawJmapResponse } from "./core/response";
+export type { JmapCreated, JmapMethodError, JmapSetArgs, JmapSetResponse } from "./core/set";
+export { CREATION_ID, createdOne, getSetError } from "./core/set";
 export {
   createBasicAuthorizationHeader,
   discoverJmapSession,
@@ -66,6 +69,8 @@ export type * from "./vacation/types";
 export {
   AddressBookChanges,
   AddressBookGet,
+  AddressBookSet,
+  ContactCardParse,
   ContactCardChanges,
   ContactCardGet,
   ContactCardQuery,
@@ -73,6 +78,7 @@ export {
   ContactCardSet,
 } from "./contacts/methods";
 export { JmapContacts } from "./contacts/jmap-contacts";
+export { splitVCards } from "./contacts/vcard-split";
 export type * from "./contacts/types";
 export {
   CalendarChanges,
@@ -121,3 +127,6 @@ export {
 } from "./notes/methods";
 export { DEFAULT_NOTE_PROPERTIES, JmapNotes } from "./notes/jmap-notes";
 export type * from "./notes/types";
+export { PrincipalGet, PrincipalGetAvailability, PrincipalQuery } from "./principals/methods";
+export { JmapPrincipals } from "./principals/jmap-principals";
+export type * from "./principals/types";

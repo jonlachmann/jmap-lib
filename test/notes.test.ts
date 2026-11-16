@@ -95,28 +95,28 @@ test("destroyNoteBook passes onDestroyRemoveNotes and surfaces noteBookHasNote",
 
 test("createNote returns the created id", async () => {
   const { notes, requests } = createRecordingClient([
-    ["Note/set", { accountId: "acc", created: { n: { id: "note-1" } } }],
+    ["Note/set", { accountId: "acc", created: { new: { id: "note-1" } } }],
   ]);
 
-  const id = await notes.createNote(acc, "n", {
+  const id = (await notes.createNote(acc, {
     noteBookId: "nb1",
     title: "Shopping",
     description: "<p>Milk</p>",
     descriptionContentType: "text/html",
-  });
+  })).id;
 
   assert.equal(id, "note-1");
   assert.deepEqual(requests[0].methodCalls[0][1].create, {
-    n: { noteBookId: "nb1", title: "Shopping", description: "<p>Milk</p>", descriptionContentType: "text/html" },
+    new: { noteBookId: "nb1", title: "Shopping", description: "<p>Milk</p>", descriptionContentType: "text/html" },
   });
 });
 
 test("createNote throws on SetError", async () => {
   const { notes } = createRecordingClient([
-    ["Note/set", { accountId: "acc", notCreated: { n: { type: "alreadyExists", description: "uid exists" } } }],
+    ["Note/set", { accountId: "acc", notCreated: { new: { type: "alreadyExists", description: "uid exists" } } }],
   ]);
 
-  await assert.rejects(() => notes.createNote(acc, "n", { noteBookId: "nb1", uid: "u1" }), /uid exists/);
+  await assert.rejects(() => notes.createNote(acc, { noteBookId: "nb1", uid: "u1" }), /uid exists/);
 });
 
 test("setFlagged patches the $flagged keyword", async () => {
@@ -171,11 +171,11 @@ test("listNotes filters by notebook", async () => {
 
 test("copyNote sends source id and returns new id", async () => {
   const { notes, requests } = createRecordingClient([
-    ["Note/copy", { fromAccountId: "src", accountId: "acc", created: { c: { id: "n-copy" } } }],
+    ["Note/copy", { fromAccountId: "src", accountId: "acc", created: { new: { id: "n-copy" } } }],
   ]);
 
-  const id = await notes.copyNote(acc, AccountId.of("src"), "c", { id: "n1", noteBookId: "nb1" });
+  const { id } = await notes.copyNote(acc, AccountId.of("src"), { id: "n1", noteBookId: "nb1" });
 
   assert.equal(id, "n-copy");
-  assert.deepEqual(requests[0].methodCalls[0][1].create, { c: { id: "n1", noteBookId: "nb1" } });
+  assert.deepEqual(requests[0].methodCalls[0][1].create, { new: { id: "n1", noteBookId: "nb1" } });
 });

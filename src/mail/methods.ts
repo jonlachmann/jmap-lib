@@ -181,6 +181,28 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
       properties,
     });
   }
+
+  /**
+   * The emails of the threads a Thread/get earlier in the same request found (RFC 8620 3.7), so a conversation's
+   * messages come in one request.
+   */
+  static byThreads(
+    accountId: AccountId,
+    threadCallId: CallId,
+    properties?: readonly EmailProperty[],
+    options?: Pick<EmailGetRequest, "fetchAllBodyValues" | "fetchTextBodyValues" | "fetchHTMLBodyValues" | "maxBodyValueBytes">,
+  ): EmailGet {
+    return new EmailGet({
+      accountId: accountId.value,
+      "#ids": {
+        resultOf: threadCallId.value,
+        name: "Thread/get",
+        path: "/list/*/emailIds",
+      },
+      properties,
+      ...options,
+    });
+  }
 }
 
 export class EmailSet implements JmapMethod<EmailSetRequest, import("../core/set").JmapSetResponse> {

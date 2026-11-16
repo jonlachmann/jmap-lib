@@ -194,3 +194,13 @@ test("Mailbox/query, Mailbox/queryChanges, and Mailbox/set preserve typed mailbo
   assert.equal(set.arguments.create?.mailbox?.name, "Projects");
   assert.equal(changes.methodName, "Mailbox/changes");
 });
+
+test("EmailGet.byThreads takes its ids from a Thread/get in the same request", () => {
+  const get = EmailGet.byThreads(AccountId.of("acc"), CallId.of("t"), ["id", "mailboxIds"], { fetchAllBodyValues: true });
+  assert.deepEqual(get.arguments, {
+    accountId: "acc",
+    "#ids": { resultOf: "t", name: "Thread/get", path: "/list/*/emailIds" },
+    properties: ["id", "mailboxIds"],
+    fetchAllBodyValues: true,
+  });
+});

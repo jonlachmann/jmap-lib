@@ -49,12 +49,12 @@ export type NoteBookProperty =
   | "shareWith"
   | "myRights";
 
-export interface NoteBookMutable {
+export type NoteBookMutable = {
   name?: string;
   sortOrder?: number;
   isSubscribed?: boolean;
   shareWith?: Record<string, NoteBookRights> | null;
-}
+};
 
 export interface NoteBookCreate extends NoteBookMutable {
   name: string;
@@ -112,14 +112,14 @@ export type NoteProperty =
   | "created"
   | "updated";
 
-export interface NoteMutable {
+export type NoteMutable = {
   noteBookId?: string;
   title?: string;
   description?: string;
   descriptionContentType?: NoteContentType;
   color?: string | null;
   keywords?: Record<string, boolean>;
-}
+};
 
 export interface NoteCreate extends NoteMutable {
   noteBookId: string;

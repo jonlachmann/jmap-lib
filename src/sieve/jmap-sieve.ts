@@ -1,7 +1,7 @@
 import { CORE_SIEVE_CAPABILITIES } from "../core/capabilities";
 import { JmapClient } from "../core/client";
 import { AccountId } from "../core/ids";
-import { getSetError } from "../core/set";
+import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
 import { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./methods";
 import type {
   SieveScript,
@@ -24,34 +24,23 @@ export class JmapSieve {
 
   async create(
     accountId: AccountId,
-    clientId: string,
     script: { name: string; blobId: string },
     activate = false,
-  ): Promise<string> {
-    const response = await this.client.invoke<SieveScriptSetRequest, import("../core/set").JmapSetResponse>(
+  ): Promise<JmapCreated> {
+    const response = await this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
-        create: { [clientId]: script },
-        onSuccessActivateScript: activate ? `#${clientId}` : undefined,
+        create: { [CREATION_ID]: script },
+        onSuccessActivateScript: activate ? `#${CREATION_ID}` : undefined,
       }),
       { capabilities: CORE_SIEVE_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create sieve script");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("SieveScript/set did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "sieve script");
   }
 
-  async update(accountId: AccountId, scriptId: string, blobId: string, activate = false): Promise<void> {
-    const response = await this.client.invoke<SieveScriptSetRequest, import("../core/set").JmapSetResponse>(
+  async update(accountId: AccountId, scriptId: string, blobId: string, activate = false): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
         update: { [scriptId]: { blobId } },
@@ -64,10 +53,12 @@ export class JmapSieve {
     if (error) {
       throw new Error(error.description || "Failed to update sieve script");
     }
+
+    return response;
   }
 
-  async destroy(accountId: AccountId, scriptId: string): Promise<void> {
-    const response = await this.client.invoke<SieveScriptSetRequest, import("../core/set").JmapSetResponse>(
+  async destroy(accountId: AccountId, scriptId: string): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
         destroy: [scriptId],
@@ -79,10 +70,12 @@ export class JmapSieve {
     if (error) {
       throw new Error(error.description || "Failed to delete sieve script");
     }
+
+    return response;
   }
 
-  async activate(accountId: AccountId, scriptId: string): Promise<void> {
-    await this.client.invoke(
+  async activate(accountId: AccountId, scriptId: string): Promise<JmapSetResponse> {
+    return this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
         onSuccessActivateScript: scriptId,
@@ -91,8 +84,8 @@ export class JmapSieve {
     );
   }
 
-  async deactivate(accountId: AccountId): Promise<void> {
-    await this.client.invoke(
+  async deactivate(accountId: AccountId): Promise<JmapSetResponse> {
+    return this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
         onSuccessActivateScript: null,

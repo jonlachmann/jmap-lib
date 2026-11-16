@@ -163,3 +163,49 @@ test("JmapClient throws a network error when the request gets no response", asyn
     (error: unknown) => error instanceof JmapNetworkError && error.cause instanceof TypeError,
   );
 });
+
+test("JmapClient.sendRaw sends createdIds and keeps a method's error among the responses", async () => {
+  let body: { createdIds?: Record<string, string>; methodCalls: unknown[] } | undefined;
+  const client = new JmapClient({
+    endpoint: "https://example.test/jmap",
+    accessToken: "secret",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async (_url, init) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({
+        methodResponses: [["error", { type: "invalidArguments" }, "0"], ["Task/set", { accountId: "a", updated: { t9: null } }, "1"]],
+        createdIds: { t1: "t9" },
+      }), { status: 200 });
+    },
+  });
+
+  const response = await client.sendRaw(
+    [["Task/set", { accountId: "a", bad: true }, "0"], ["Task/set", { accountId: "a", update: { "#t1": {} } }, "1"]],
+    { createdIds: { t1: "t9" } },
+  );
+
+  assert.deepEqual(body?.createdIds, { t1: "t9" });
+  assert.equal(response.methodResponses?.length, 2);
+  assert.deepEqual(response.createdIds, { t1: "t9" });
+});
+
+test("onResponse sees each request's calls and response before the caller gets it", async () => {
+  const seen: string[] = [];
+  const client = new JmapClient({
+    endpoint: "https://example.test/jmap",
+    accessToken: "token",
+    capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+    fetch: async () => new Response(JSON.stringify({
+      methodResponses: [["Email/get", { list: [], state: "s1" }, "0"]],
+      sessionState: "x",
+    }), { status: 200 }),
+    onResponse: async (calls, response) => {
+      await Promise.resolve();
+      seen.push(`${calls[0][0]}:${response.methodResponses?.[0][0]}:${response.sessionState}`);
+    },
+  });
+
+  await client.invoke(EmailGet.byIds(AccountId.of("acc"), []));
+  seen.push("caller");
+  assert.deepEqual(seen, ["Email/get:Email/get:x", "caller"]);
+});

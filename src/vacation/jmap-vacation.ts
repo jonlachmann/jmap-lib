@@ -1,6 +1,6 @@
 import { CORE_MAIL_VACATION_CAPABILITIES } from "../core/capabilities";
 import { JmapClient } from "../core/client";
-import { getSetError } from "../core/set";
+import { getSetError, type JmapSetResponse } from "../core/set";
 import { AccountId } from "../core/ids";
 import { VacationResponseGet, VacationResponseSet } from "./methods";
 import type {
@@ -20,8 +20,8 @@ export class JmapVacation {
     return response.list[0];
   }
 
-  async update(accountId: AccountId, updates: Partial<VacationResponse>): Promise<void> {
-    const response = await this.client.invoke<VacationResponseSetRequest, import("../core/set").JmapSetResponse>(
+  async update(accountId: AccountId, updates: Partial<VacationResponse>): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<VacationResponseSetRequest, JmapSetResponse>(
       new VacationResponseSet({
         accountId: accountId.value,
         update: { singleton: updates },
@@ -33,5 +33,7 @@ export class JmapVacation {
     if (error) {
       throw new Error(error.description || "Failed to update vacation response");
     }
+
+    return response;
   }
 }

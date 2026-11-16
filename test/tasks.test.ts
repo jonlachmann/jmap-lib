@@ -102,17 +102,17 @@ test("TaskChanges has correct method name", () => {
 test("TaskSet has correct method name", () => {
   const method = new TaskSet({
     accountId: "acc",
-    create: { task: { taskListIds: { "tl-1": true }, title: "Do it" } },
+    create: { task: { taskListId: "tl-1", title: "Do it" } },
   });
   assert.equal(method.methodName, "Task/set");
-  assert.deepEqual(method.arguments.create?.task, { taskListIds: { "tl-1": true }, title: "Do it" });
+  assert.deepEqual(method.arguments.create?.task, { taskListId: "tl-1", title: "Do it" });
 });
 
 test("TaskCopy preserves copy arguments", () => {
   const method = new TaskCopy({
     fromAccountId: "from-acc",
     accountId: "to-acc",
-    create: { copy1: { taskListIds: { "tl-1": true }, title: "Copied" } },
+    create: { copy1: { taskListId: "tl-1", title: "Copied" } },
     onSuccessDestroyOriginal: true,
   });
   assert.equal(method.methodName, "Task/copy");
@@ -198,20 +198,20 @@ test("JmapTasks.listTaskLists uses tasks capabilities", async () => {
 
 test("JmapTasks.createTaskList returns created id", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["TaskList/set", { accountId: "acc", created: { mylist: { id: "tl-new" } } }],
+    ["TaskList/set", { accountId: "acc", created: { new: { id: "tl-new" } } }],
   ]));
 
-  const id = await tasks.createTaskList(AccountId.of("acc"), "mylist", { name: "Work" });
+  const id = (await tasks.createTaskList(AccountId.of("acc"), { name: "Work" })).id;
   assert.equal(id, "tl-new");
 });
 
 test("JmapTasks.createTaskList throws on error", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["TaskList/set", { accountId: "acc", notCreated: { mylist: { description: "forbidden" } } }],
+    ["TaskList/set", { accountId: "acc", notCreated: { new: { description: "forbidden" } } }],
   ]));
 
   await assert.rejects(
-    () => tasks.createTaskList(AccountId.of("acc"), "mylist", { name: "Work" }),
+    () => tasks.createTaskList(AccountId.of("acc"), { name: "Work" }),
     /forbidden/,
   );
 });
@@ -260,7 +260,7 @@ test("JmapTasks.destroyTaskList with onDestroyRemoveTasks", async () => {
 test("JmapTasks.listTasks batches query+get", async () => {
   const tasks = new JmapTasks(createMockClient([
     ["Task/query", { accountId: "acc", ids: ["t1"] }],
-    ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListIds: { "tl-1": true }, title: "Buy milk" }] }],
+    ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListId: "tl-1", title: "Buy milk" }] }],
   ]));
 
   const result = await tasks.listTasks(AccountId.of("acc"), ["tl-1"]);
@@ -280,7 +280,7 @@ test("JmapTasks.queryTasks uses filter and sort", async () => {
         JSON.stringify({
           methodResponses: [
             ["Task/query", { accountId: "acc", ids: ["t1"] }, "0"],
-            ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListIds: { "tl-1": true }, title: "Test" }] }, "1"],
+            ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListId: "tl-1", title: "Test" }] }, "1"],
           ],
         }),
         { status: 200 },
@@ -301,7 +301,7 @@ test("JmapTasks.queryTasks uses filter and sort", async () => {
 
 test("JmapTasks.getTask returns single task", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListIds: { "tl-1": true }, title: "Hello" }] }],
+    ["Task/get", { accountId: "acc", list: [{ id: "t1", taskListId: "tl-1", title: "Hello" }] }],
   ]));
 
   const task = await tasks.getTask(AccountId.of("acc"), "t1");
@@ -319,23 +319,23 @@ test("JmapTasks.getTask returns undefined for not found", async () => {
 
 test("JmapTasks.createTask returns created id", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["Task/set", { accountId: "acc", created: { mytask: { id: "t-new" } } }],
+    ["Task/set", { accountId: "acc", created: { new: { id: "t-new" } } }],
   ]));
 
-  const id = await tasks.createTask(AccountId.of("acc"), "mytask", {
-    taskListIds: { "tl-1": true },
+  const id = (await tasks.createTask(AccountId.of("acc"), {
+    taskListId: "tl-1",
     title: "New task",
-  });
+  })).id;
   assert.equal(id, "t-new");
 });
 
 test("JmapTasks.createTask throws on error", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["Task/set", { accountId: "acc", notCreated: { mytask: { description: "invalid" } } }],
+    ["Task/set", { accountId: "acc", notCreated: { new: { description: "invalid" } } }],
   ]));
 
   await assert.rejects(
-    () => tasks.createTask(AccountId.of("acc"), "mytask", { taskListIds: { "tl-1": true }, title: "x" }),
+    () => tasks.createTask(AccountId.of("acc"), { taskListId: "tl-1", title: "x" }),
     /invalid/,
   );
 });
@@ -380,25 +380,24 @@ test("JmapTasks.destroyTask throws on error", async () => {
 
 test("JmapTasks.copyTask returns created id", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["Task/copy", { fromAccountId: "from", accountId: "to", created: { c1: { id: "t-copied" } } }],
+    ["Task/copy", { fromAccountId: "from", accountId: "to", created: { new: { id: "t-copied" } } }],
   ]));
 
-  const id = await tasks.copyTask(
+  const { id } = await tasks.copyTask(
     AccountId.of("to"),
     AccountId.of("from"),
-    "c1",
-    { taskListIds: { "tl-1": true }, title: "Copied" },
+    { taskListId: "tl-1", title: "Copied" },
   );
   assert.equal(id, "t-copied");
 });
 
 test("JmapTasks.copyTask throws on error", async () => {
   const tasks = new JmapTasks(createMockClient([
-    ["Task/copy", { fromAccountId: "from", accountId: "to", notCreated: { c1: { description: "quota" } } }],
+    ["Task/copy", { fromAccountId: "from", accountId: "to", notCreated: { new: { description: "quota" } } }],
   ]));
 
   await assert.rejects(
-    () => tasks.copyTask(AccountId.of("to"), AccountId.of("from"), "c1", { taskListIds: { "tl-1": true } }),
+    () => tasks.copyTask(AccountId.of("to"), AccountId.of("from"), { taskListId: "tl-1" }),
     /quota/,
   );
 });
@@ -518,7 +517,7 @@ test("JmapTasks.destroyNotification throws on error", async () => {
 
 test("DEFAULT_TASK_PROPERTIES contains core properties", () => {
   assert.ok(DEFAULT_TASK_PROPERTIES.includes("id"));
-  assert.ok(DEFAULT_TASK_PROPERTIES.includes("taskListIds"));
+  assert.ok(DEFAULT_TASK_PROPERTIES.includes("taskListId"));
   assert.ok(DEFAULT_TASK_PROPERTIES.includes("title"));
   assert.ok(DEFAULT_TASK_PROPERTIES.includes("progress"));
   assert.ok(DEFAULT_TASK_PROPERTIES.includes("estimatedWork"));

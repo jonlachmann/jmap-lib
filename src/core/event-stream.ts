@@ -1,6 +1,8 @@
 /**
  * JMAP Event Source over fetch (RFC 8620 §7.3). Unlike native EventSource, it sends the token in
  * the Authorization header and handles reconnection itself, so it can report connection state.
+ * As EventSource does, it sends the last event id it saw when it reconnects (Last-Event-ID), from
+ * which the server tells it at once what changed while it was away.
  */
 
 import type { StateChange } from "./event-source";
@@ -25,6 +27,8 @@ export type JmapEventStreamOptions = {
   stallTimeoutMs?: number;
   /** Custom fetch implementation. Default: globalThis.fetch. */
   fetch?: typeof globalThis.fetch;
+  /** The last event id an earlier stream saw, sent on the first connection so nothing missed since is lost. */
+  lastEventId?: string;
 };
 
 export type JmapEventStream = {
@@ -32,6 +36,8 @@ export type JmapEventStream = {
   close: () => void;
   /** The last reported connection state. */
   readonly state: ConnectionState;
+  /** The last event id the server set, for a stream that follows this one. */
+  readonly lastEventId: string | undefined;
 };
 
 const BASE_RETRY_MS = 1000;
@@ -41,6 +47,8 @@ const MAX_RETRY_MS = 30000;
 export class SseParser {
   private buffer = "";
   private lastWasCr = false;
+  /** The id the stream last set, by any frame, one without data included (the EventSource processing model). */
+  lastEventId: string | undefined;
 
   /** Feed a decoded chunk; returns the events completed by it. */
   push(chunk: string): Array<{ event: string; data: string; id?: string }> {
@@ -55,7 +63,8 @@ export class SseParser {
       const raw = this.buffer.slice(0, boundary);
       this.buffer = this.buffer.slice(boundary + 2);
       const parsed = parseFrame(raw);
-      if (parsed) events.push(parsed);
+      if (parsed.id !== undefined) this.lastEventId = parsed.id;
+      if (parsed.data !== null) events.push({ event: parsed.event, data: parsed.data, id: parsed.id });
       boundary = this.buffer.indexOf("\n\n");
     }
 
@@ -63,7 +72,8 @@ export class SseParser {
   }
 }
 
-function parseFrame(raw: string): { event: string; data: string; id?: string } | null {
+/** A frame's fields; data is null when it has none, which dispatches nothing. */
+function parseFrame(raw: string): { event: string; data: string | null; id?: string } {
   let event = "message";
   let id: string | undefined;
   const data: string[] = [];
@@ -78,11 +88,11 @@ function parseFrame(raw: string): { event: string; data: string; id?: string } |
 
     if (field === "event") event = value;
     else if (field === "data") data.push(value);
-    else if (field === "id") id = value;
+    // An id holding NUL is ignored (EventSource)
+    else if (field === "id" && !value.includes("\0")) id = value;
   }
 
-  if (data.length === 0) return null;
-  return { event, data: data.join("\n"), id };
+  return { event, data: data.length === 0 ? null : data.join("\n"), id };
 }
 
 /** Expand the RFC 6570 level-1 URI template from the session. */
@@ -110,6 +120,7 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
   let state: ConnectionState = "connecting";
   let controller: AbortController | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastEventId = options.lastEventId;
 
   function setState(next: ConnectionState): void {
     if (state === next) return;
@@ -131,7 +142,11 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
       if (!token) throw new Error("Not signed in");
 
       const response = await doFetch(url, {
-        headers: { authorization: `Bearer ${token}`, accept: "text/event-stream" },
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "text/event-stream",
+          ...(lastEventId === undefined ? {} : { "last-event-id": lastEventId }),
+        },
         signal: controller.signal,
         cache: "no-store",
       });
@@ -152,7 +167,9 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
         if (done) break;
         resetStall();
 
-        for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
+        const frames = parser.push(decoder.decode(value, { stream: true }));
+        lastEventId = parser.lastEventId ?? lastEventId;
+        for (const frame of frames) {
           // Other events, such as ping, only reset the stall timer
           if (frame.event !== "state") continue;
           try {
@@ -189,6 +206,9 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
     },
     get state() {
       return state;
+    },
+    get lastEventId() {
+      return lastEventId;
     },
   };
 }

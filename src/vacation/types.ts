@@ -29,14 +29,14 @@ export interface VacationResponseGetResponse {
   list: VacationResponse[];
 }
 
-export interface VacationResponseMutable {
+export type VacationResponseMutable = {
   isEnabled?: boolean;
   fromDate?: string | null;
   toDate?: string | null;
   subject?: string;
   textBody?: string;
   htmlBody?: string | null;
-}
+};
 
 export type VacationResponseUpdate = JmapPatchObject<VacationResponseMutable>;
 

@@ -57,20 +57,15 @@ Run unit tests:
 npm run test:unit
 ```
 
-Run integration tests against compiled output:
+Run integration tests:
 
 ```bash
 npm run test:integration
 ```
 
-Run tests directly from TypeScript with `tsx`:
-
-```bash
-npm run test:tsx
-npm run test:integration:tsx
-```
-
-The `tsx` scripts are useful for IDE runs, especially WebStorm.
+The tests run from the TypeScript sources with `tsx`, after `tsc` checks the types. Known limitation: the compiled
+output keeps the sources' extensionless imports, which Node's ESM loader can't resolve, so the package works through a
+bundler (Vite, as the webmail uses) and not in plain Node until the imports carry `.js` extensions.
 
 ## Integration Test Setup
 

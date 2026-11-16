@@ -17,11 +17,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "npm run build && node --test dist/test/*.test.js",
-    "test:integration": "npm run build && node --test dist/test/integration/**/*.test.js",
-    "test:tsx": "tsx --test test/*.test.ts",
-    "test:integration:tsx": "tsx --test test/integration/**/*.test.ts"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run typecheck && npm run test:unit && npm run test:integration",
+    "test:unit": "tsx --test test/*.test.ts",
+    "test:integration": "tsx --test test/integration/**/*.test.ts"
   },
   "engines": {
     "node": ">=20"

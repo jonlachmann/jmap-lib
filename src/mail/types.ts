@@ -29,6 +29,19 @@ export type MailboxProperty =
   | "isSubscribed"
   | "myRights";
 
+/** RFC 8621 2: what a user may do with a mailbox. */
+export interface MailboxRights {
+  mayReadItems: boolean;
+  mayAddItems: boolean;
+  mayRemoveItems: boolean;
+  maySetSeen: boolean;
+  maySetKeywords: boolean;
+  mayCreateChild: boolean;
+  mayRename: boolean;
+  mayDelete: boolean;
+  maySubmit: boolean;
+}
+
 export interface JmapMailbox {
   id: string;
   name: string;
@@ -40,7 +53,7 @@ export interface JmapMailbox {
   totalThreads?: number;
   unreadThreads?: number;
   isSubscribed?: boolean;
-  myRights?: Record<string, boolean>;
+  myRights?: MailboxRights;
 }
 
 export interface MailboxGetRequest extends JmapGetArgs<MailboxProperty> {}
@@ -188,6 +201,7 @@ export type EmailProperty =
   | "inReplyTo"
   | "references"
   | "from"
+  | "sender"
   | "to"
   | "cc"
   | "bcc"
@@ -198,7 +212,9 @@ export type EmailProperty =
   | "bodyValues"
   | "textBody"
   | "htmlBody"
-  | "attachments";
+  | "attachments"
+  /** RFC 8621 4.1.3: a header field by name, with an optional form and :all, such as "header:List-Id:asText". */
+  | `header:${string}`;
 
 export interface JmapEmail {
   id: string;
@@ -211,6 +227,8 @@ export interface JmapEmail {
   inReplyTo?: string[];
   references?: string[];
   from?: JmapEmailAddress[];
+  /** RFC 8621 4.1.2.3: the Sender header, who sent the message for its author. */
+  sender?: JmapEmailAddress[];
   to?: JmapEmailAddress[];
   cc?: JmapEmailAddress[];
   bcc?: JmapEmailAddress[];
@@ -223,9 +241,12 @@ export interface JmapEmail {
   textBody?: EmailBodyPartReference[];
   htmlBody?: EmailBodyPartReference[];
   attachments?: EmailAttachment[];
+  /** RFC 8621 4.1.3: the header fields asked for by name; the form asked for decides the value's shape, and null is
+   *  a field the message doesn't have. */
+  [header: `header:${string}`]: unknown;
 }
 
-export interface EmailMutable {
+export type EmailMutable = {
   mailboxIds?: Record<string, boolean>;
   keywords?: Record<JmapKeyword, boolean>;
   from?: JmapEmailAddress[];
@@ -238,7 +259,7 @@ export interface EmailMutable {
   textBody?: EmailBodyPartReference[];
   htmlBody?: EmailBodyPartReference[];
   attachments?: EmailAttachment[];
-}
+};
 
 export interface EmailCreate extends EmailMutable {
   messageId?: string[];
@@ -314,8 +335,8 @@ export interface Identity {
   id: string;
   name: string;
   email: string;
-  replyTo?: JmapEmailAddress[];
-  bcc?: JmapEmailAddress[];
+  replyTo?: JmapEmailAddress[] | null;
+  bcc?: JmapEmailAddress[] | null;
   textSignature?: string;
   htmlSignature?: string;
   mayDelete?: boolean;
@@ -344,14 +365,14 @@ export interface IdentityChangesRequest extends JmapChangesArgs {}
 
 export interface IdentityChangesResponse extends JmapChangesResponse {}
 
-export interface IdentityMutable {
+export type IdentityMutable = {
   name?: string;
   email?: string;
-  replyTo?: JmapEmailAddress[];
-  bcc?: JmapEmailAddress[];
+  replyTo?: JmapEmailAddress[] | null;
+  bcc?: JmapEmailAddress[] | null;
   textSignature?: string;
   htmlSignature?: string;
-}
+};
 
 export interface IdentityCreate extends IdentityMutable {}
 
@@ -366,7 +387,7 @@ export type IdReference<MethodName extends string = string> = {
 };
 
 export interface EmailGetRequest extends JmapGetArgs<EmailProperty> {
-  "#ids"?: IdReference<"Email/query">;
+  "#ids"?: IdReference<"Email/query" | "Thread/get">;
   fetchTextBodyValues?: boolean;
   fetchHTMLBodyValues?: boolean;
   fetchAllBodyValues?: boolean;

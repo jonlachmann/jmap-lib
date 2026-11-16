@@ -200,16 +200,16 @@ test("integration: createDraft creates drafts with attachments", { skip }, async
     contentType: "text/plain",
     body: "attachment body",
   });
-  const draftId = await mail.createDraft({
+  const draftClientId = createIntegrationId("draft-attachment");
+  const draftId = (await mail.createDraft({
     accountId: context.accountId,
-    clientId: createIntegrationId("draft-attachment"),
     draftsMailboxId: MailboxId.of(drafts.id),
     from: [{ email: draftAddress }],
     to: [{ email: draftAddress }],
     subject: `Attachment ${Date.now()}`,
     body: "Attachment integration test",
     attachments: [{ blobId, type: "text/plain", name: "integration.txt" }],
-  });
+  })).id;
 
   try {
     const email = await mail.getEmail(context.accountId, draftId, [
@@ -238,15 +238,15 @@ test("integration: submits a created draft when submission is supported", { skip
 
   const { mail, mailboxes } = await createMailIntegrationContext();
   const drafts = requireMailboxByRole(mailboxes, "drafts");
-  const draftId = await mail.createDraft({
+  const draftClientId = createIntegrationId("submit");
+  const draftId = (await mail.createDraft({
     accountId: context.accountId,
-    clientId: createIntegrationId("submit"),
     draftsMailboxId: MailboxId.of(drafts.id),
     from: [{ email: identities[0].email, name: identities[0].name }],
     to: [{ email: identities[0].email, name: identities[0].name }],
     subject: `Submit ${Date.now()}`,
     body: "Submission integration test",
-  });
+  })).id;
 
   await mail.submit(context.accountId, identities[0].id, draftId);
 });
@@ -268,15 +268,15 @@ async function createDraft(
   subject: string,
   fallbackEmail: string,
 ): Promise<string> {
-  return mail.createDraft({
+  const { id } = await mail.createDraft({
     accountId,
-    clientId: createIntegrationId("draft"),
     draftsMailboxId: MailboxId.of(draftsMailboxId),
     from: [{ email: fallbackEmail }],
     to: [{ email: fallbackEmail }],
     subject,
     body: `Body for ${subject}`,
   });
+  return id;
 }
 
 function requireMoveTargetMailbox(

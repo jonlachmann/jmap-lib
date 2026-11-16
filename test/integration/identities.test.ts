@@ -47,11 +47,11 @@ test("integration: creates an identity when submission is supported", { skip }, 
   const existing = await identitiesClient.list(context.accountId);
 
   const clientId = createIntegrationId("create-identity");
-  const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
+  const createdIdentityId = (await identitiesClient.create(context.accountId, {
     name: `Integration ${clientId}`,
     email: existing[0].email,
     textSignature: `Created by ${clientId}`,
-  });
+  })).id;
 
   try {
     assert.equal(typeof createdIdentityId, "string");
@@ -68,11 +68,11 @@ test("integration: updates an identity when submission is supported", { skip }, 
   const existing = await identitiesClient.list(context.accountId);
 
   const clientId = createIntegrationId("update-identity");
-  const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
+  const createdIdentityId = (await identitiesClient.create(context.accountId, {
     name: `Original ${clientId}`,
     email: existing[0].email,
     textSignature: "Original signature",
-  });
+  })).id;
 
   try {
     const updatedName = `Updated ${clientId}`;
@@ -99,10 +99,10 @@ test("integration: destroys an identity when submission is supported", { skip },
   const existing = await identitiesClient.list(context.accountId);
 
   const clientId = createIntegrationId("destroy-identity");
-  const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
+  const createdIdentityId = (await identitiesClient.create(context.accountId, {
     name: `Destroy ${clientId}`,
     email: existing[0].email,
-  });
+  })).id;
 
   await identitiesClient.destroy(context.accountId, createdIdentityId);
 
@@ -126,10 +126,10 @@ test("integration: reports identity changes after creating an identity", { skip 
   assert.ok(baseline.state, "expected identity state");
 
   const clientId = createIntegrationId("identity-changes");
-  const createdIdentityId = await identitiesClient.create(context.accountId, clientId, {
+  const createdIdentityId = (await identitiesClient.create(context.accountId, {
     name: `Integration ${clientId}`,
     email: existing[0].email,
-  });
+  })).id;
 
   try {
     const changes = await identitiesClient.changes(context.accountId, baseline.state);

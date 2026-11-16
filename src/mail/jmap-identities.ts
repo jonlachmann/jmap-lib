@@ -3,11 +3,13 @@ import {
 } from "../core/capabilities";
 import { JmapClient } from "../core/client";
 import type { JmapChangesResponse } from "../core/changes";
-import { getSetError } from "../core/set";
+import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
 import { AccountId } from "../core/ids";
 import { IdentityChanges, IdentityGet, IdentitySet } from "./methods";
 import type {
   Identity,
+  IdentityCreate,
+  IdentityUpdate,
   IdentityChangesRequest,
   IdentityGetRequest,
   IdentityGetResponse,
@@ -39,30 +41,20 @@ export class JmapIdentities {
     );
   }
 
-  async create(accountId: AccountId, clientId: string, identity: Partial<Identity>): Promise<string> {
-    const response = await this.client.invoke<IdentitySetRequest, import("../core/set").JmapSetResponse>(
+  async create(accountId: AccountId, identity: IdentityCreate): Promise<JmapCreated> {
+    const response = await this.client.invoke<IdentitySetRequest, JmapSetResponse>(
       new IdentitySet({
         accountId: accountId.value,
-        create: { [clientId]: identity },
+        create: { [CREATION_ID]: identity },
       }),
       { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", clientId);
-    if (error) {
-      throw new Error(error.description || "Failed to create identity");
-    }
-
-    const createdId = response.created?.[clientId]?.id;
-    if (!createdId) {
-      throw new Error("Identity/create did not return an id");
-    }
-
-    return createdId;
+    return createdOne(response, "identity");
   }
 
-  async update(accountId: AccountId, identityId: string, updates: Partial<Identity>): Promise<void> {
-    const response = await this.client.invoke<IdentitySetRequest, import("../core/set").JmapSetResponse>(
+  async update(accountId: AccountId, identityId: string, updates: IdentityUpdate): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<IdentitySetRequest, JmapSetResponse>(
       new IdentitySet({
         accountId: accountId.value,
         update: { [identityId]: updates },
@@ -74,10 +66,12 @@ export class JmapIdentities {
     if (error) {
       throw new Error(error.description || "Failed to update identity");
     }
+
+    return response;
   }
 
-  async destroy(accountId: AccountId, identityId: string): Promise<void> {
-    const response = await this.client.invoke<IdentitySetRequest, import("../core/set").JmapSetResponse>(
+  async destroy(accountId: AccountId, identityId: string): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<IdentitySetRequest, JmapSetResponse>(
       new IdentitySet({
         accountId: accountId.value,
         destroy: [identityId],
@@ -89,5 +83,7 @@ export class JmapIdentities {
     if (error) {
       throw new Error(error.description || "Failed to delete identity");
     }
+
+    return response;
   }
 }

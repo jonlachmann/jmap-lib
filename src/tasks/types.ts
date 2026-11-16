@@ -53,7 +53,7 @@ export type TaskListProperty =
   | "defaultAlertsWithTime"
   | "defaultAlertsWithoutTime";
 
-export interface TaskListMutable {
+export type TaskListMutable = {
   name?: string;
   description?: string | null;
   color?: string | null;
@@ -66,7 +66,7 @@ export interface TaskListMutable {
   shareWith?: Record<string, TaskRights> | null;
   defaultAlertsWithTime?: Record<string, unknown> | null;
   defaultAlertsWithoutTime?: Record<string, unknown> | null;
-}
+};
 
 export interface TaskListCreate extends TaskListMutable {}
 
@@ -145,10 +145,10 @@ export interface Relation {
 
 export interface Task {
   id: string;
-  taskListIds: Record<string, boolean>;
+  taskListId: string;
   isDraft?: boolean;
   uid?: string;
-  "@type"?: "jstask";
+  "@type"?: "Task";
   created?: string;
   updated?: string;
   title?: string;
@@ -200,7 +200,7 @@ export interface Task {
 
 export type TaskProperty =
   | "id"
-  | "taskListIds"
+  | "taskListId"
   | "isDraft"
   | "uid"
   | "@type"
@@ -249,8 +249,8 @@ export type TaskProperty =
   | "alerts"
   | "freeBusyStatus";
 
-export interface TaskMutable {
-  taskListIds?: Record<string, boolean>;
+export type TaskMutable = {
+  taskListId?: string;
   isDraft?: boolean;
   uid?: string;
   title?: string;
@@ -293,7 +293,7 @@ export interface TaskMutable {
   useDefaultAlerts?: boolean;
   alerts?: Record<string, unknown> | null;
   freeBusyStatus?: "free" | "busy";
-}
+};
 
 export interface TaskCreate extends TaskMutable {}
 
