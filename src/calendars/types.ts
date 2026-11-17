@@ -1,8 +1,20 @@
-import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
-import type { JmapGetArgs } from "../core/get";
-import type { JmapPatchObject } from "../core/patch";
-import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
-import type { JmapSetArgs } from "../core/set";
+import type { JmapGetResponse } from "../core/get.js";
+import type { JmapQueryResponse } from "../core/query.js";
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes.js";
+import type { JmapGetArgs } from "../core/get.js";
+import type { JmapPatchObject } from "../core/patch.js";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query.js";
+import type { JmapSetArgs } from "../core/set.js";
+import type {
+  Alert,
+  Link,
+  LocalDateTime,
+  Location,
+  Participant,
+  RecurrenceOverride,
+  RecurrenceRule,
+  VirtualLocation,
+} from "../jscalendar/types.js";
 
 /** draft-ietf-jmap-calendars 4: what a user may do with a calendar. */
 export interface CalendarRights {
@@ -49,7 +61,7 @@ export type CalendarProperty =
 
 export interface CalendarEvent {
   id: string;
-  calendarIds: Record<string, boolean>;
+  calendarIds: Record<string, true>;
   uid: string;
   /** RFC 8984 4.1.7: raised by one with every change, except one to participants only. */
   sequence?: number;
@@ -65,16 +77,16 @@ export interface CalendarEvent {
   privacy?: "public" | "private" | "secret";
   priority?: number;
   color?: string | null;
-  keywords?: Record<string, boolean> | null;
-  locations?: Record<string, unknown> | null;
-  virtualLocations?: Record<string, unknown> | null;
-  links?: Record<string, unknown> | null;
-  participants?: Record<string, unknown> | null;
+  keywords?: Record<string, true> | null;
+  locations?: Record<string, Location> | null;
+  virtualLocations?: Record<string, VirtualLocation> | null;
+  links?: Record<string, Link> | null;
+  participants?: Record<string, Participant> | null;
   organizerCalendarAddress?: string | null;
-  alerts?: Record<string, unknown> | null;
-  recurrenceRules?: unknown[] | null;
-  excludedRecurrenceRules?: unknown[] | null;
-  recurrenceOverrides?: Record<string, unknown> | null;
+  alerts?: Record<string, Alert> | null;
+  /** JSCalendar-bis 3.3.3: the one rule, in place of RFC 8984's recurrenceRules. */
+  recurrenceRule?: RecurrenceRule | null;
+  recurrenceOverrides?: Record<LocalDateTime, CalendarEventOverride> | null;
   recurrenceId?: string | null;
   recurrenceIdTimeZone?: string | null;
   /** On an instance listed with expandRecurrences: the id of the recurring event it is one of. */
@@ -82,8 +94,9 @@ export interface CalendarEvent {
   isOrigin?: boolean;
 }
 
+/** draft-ietf-jmap-calendars 5.8. */
 export interface CalendarEventFilter {
-  inCalendars?: string[];
+  inCalendar?: string;
   after?: string;
   before?: string;
   text?: string;
@@ -91,8 +104,7 @@ export interface CalendarEventFilter {
   description?: string;
   location?: string;
   owner?: string;
-  attendee?: string;
-  participationStatus?: string;
+  participant?: string;
   uid?: string;
 }
 
@@ -124,8 +136,7 @@ export type CalendarEventProperty =
   | "participants"
   | "organizerCalendarAddress"
   | "alerts"
-  | "recurrenceRules"
-  | "excludedRecurrenceRules"
+  | "recurrenceRule"
   | "recurrenceOverrides"
   | "recurrenceId"
   | "recurrenceIdTimeZone"
@@ -136,11 +147,7 @@ export type CalendarEventProperty =
 
 export interface CalendarGetRequest extends JmapGetArgs<CalendarProperty> {}
 
-export interface CalendarGetResponse {
-  accountId: string;
-  state: string;
-  list: Calendar[];
-}
+export type CalendarGetResponse = JmapGetResponse<Calendar>;
 
 export type CalendarMutable = {
   name?: string;
@@ -149,7 +156,6 @@ export type CalendarMutable = {
   sortOrder?: number;
   isSubscribed?: boolean;
   isVisible?: boolean;
-  isDefault?: boolean;
   includeInAvailability?: "all" | "attending" | "none";
   timeZone?: string | null;
   shareWith?: Record<string, Partial<CalendarRights>> | null;
@@ -159,33 +165,38 @@ export interface CalendarCreate extends CalendarMutable {}
 
 export type CalendarUpdate = JmapPatchObject<CalendarMutable>;
 
-export interface CalendarSetRequest extends JmapSetArgs<CalendarCreate, CalendarUpdate> {}
+export interface CalendarSetRequest extends JmapSetArgs<CalendarCreate, CalendarUpdate> {
+  /** The calendar to make the default once the rest succeeds; "#" and a creation id for one made here. */
+  onSuccessSetIsDefault?: string | null;
+  /** Destroy a calendar's events with it; otherwise a calendar holding any is refused (calendarHasEvent). */
+  onDestroyRemoveEvents?: boolean;
+}
 
 export interface CalendarEventQueryRequest
   extends JmapQueryArgs<CalendarEventFilter, CalendarEventQuerySort> {
   /** Each instance of a recurring event as an id of its own; the filter needs after and before. */
   expandRecurrences?: boolean;
+  /** The zone after and before, and floating events' starts, are read in; Etc/UTC when not given. */
+  timeZone?: string;
 }
 
-export interface CalendarEventQueryResponse {
-  accountId: string;
-  queryState?: string;
-  ids: string[];
-  position: number;
-  total?: number;
-}
+export type CalendarEventQueryResponse = JmapQueryResponse;
 
 export interface CalendarEventQueryChangesRequest
   extends JmapQueryChangesArgs<CalendarEventFilter, CalendarEventQuerySort> {}
 
 export interface CalendarEventQueryChangesResponse extends JmapQueryChangesResponse {}
 
+/** draft-ietf-jmap-calendars-34 5.7. */
 export interface CalendarEventGetRequest extends JmapGetArgs<CalendarEventProperty> {
-  "#ids"?: {
-    resultOf: string;
-    name: "CalendarEvent/query";
-    path: "/ids";
-  };
+  /** Only recurrence overrides whose recurrence id, in UTC, is before this UTCDateTime. */
+  recurrenceOverridesBefore?: string | null;
+  /** Only recurrence overrides whose recurrence id, in UTC, is on or after this UTCDateTime. */
+  recurrenceOverridesAfter?: string | null;
+  /** Only owner participants and the user's own in participants. */
+  reduceParticipants?: boolean;
+  /** The zone floating events are read in for utcStart, utcEnd and the recurrenceOverrides bounds; Etc/UTC when not given. */
+  timeZone?: string;
 }
 
 export interface CalendarChangesRequest extends JmapChangesArgs {}
@@ -196,15 +207,10 @@ export interface CalendarEventChangesRequest extends JmapChangesArgs {}
 
 export interface CalendarEventChangesResponse extends JmapChangesResponse {}
 
-export interface CalendarEventGetResponse {
-  accountId: string;
-  state: string;
-  list: CalendarEvent[];
-  notFound?: string[];
-}
+export type CalendarEventGetResponse = JmapGetResponse<CalendarEvent>;
 
 export type CalendarEventMutable = {
-  calendarIds?: Record<string, boolean>;
+  calendarIds?: Record<string, true>;
   uid?: string;
   title?: string;
   description?: string;
@@ -218,19 +224,28 @@ export type CalendarEventMutable = {
   privacy?: "public" | "private" | "secret";
   priority?: number;
   color?: string | null;
-  keywords?: Record<string, boolean> | null;
-  locations?: Record<string, unknown> | null;
-  virtualLocations?: Record<string, unknown> | null;
-  links?: Record<string, unknown> | null;
-  participants?: Record<string, unknown> | null;
+  keywords?: Record<string, true> | null;
+  locations?: Record<string, Location> | null;
+  virtualLocations?: Record<string, VirtualLocation> | null;
+  links?: Record<string, Link> | null;
+  participants?: Record<string, Participant> | null;
   organizerCalendarAddress?: string | null;
-  alerts?: Record<string, unknown> | null;
-  recurrenceRules?: unknown[] | null;
-  excludedRecurrenceRules?: unknown[] | null;
-  recurrenceOverrides?: Record<string, unknown> | null;
+  alerts?: Record<string, Alert> | null;
+  /** JSCalendar-bis 3.3.3: the one rule, in place of RFC 8984's recurrenceRules. */
+  recurrenceRule?: RecurrenceRule | null;
+  recurrenceOverrides?: Record<LocalDateTime, CalendarEventOverride> | null;
   recurrenceId?: string | null;
-  isOrigin?: boolean;
+  /** RFC 8984 3.3: a vendor's property, its name with the vendor's domain before a colon. */
+  [vendor: `${string}:${string}`]: unknown;
 };
+
+/** JSCalendar-bis 3.3.4: what one occurrence of an event changes; the properties left out are the series'. */
+export type CalendarEventOverride = RecurrenceOverride<
+  Omit<
+    CalendarEventMutable,
+    "calendarIds" | "uid" | "privacy" | "organizerCalendarAddress" | "recurrenceRule" | "recurrenceOverrides" | "recurrenceId"
+  >
+>;
 
 export interface CalendarEventCreate extends CalendarEventMutable {}
 
@@ -266,8 +281,28 @@ export type ParticipantIdentityProperty = keyof ParticipantIdentity;
 
 export interface ParticipantIdentityGetRequest extends JmapGetArgs<ParticipantIdentityProperty> {}
 
-export interface ParticipantIdentityGetResponse {
-  accountId: string;
-  state: string;
-  list: ParticipantIdentity[];
+export type ParticipantIdentityGetResponse = JmapGetResponse<ParticipantIdentity>;
+
+export interface ParticipantIdentityChangesRequest extends JmapChangesArgs {}
+
+export interface ParticipantIdentityChangesResponse extends JmapChangesResponse {}
+
+/** isDefault is the server's, set by onSuccessSetIsDefault. */
+export type ParticipantIdentityMutable = {
+  name?: string | null;
+  calendarAddress?: string;
+};
+
+/** The server may refuse an address the user may not claim, such as another's mailto: (forbidden). */
+export interface ParticipantIdentityCreate extends ParticipantIdentityMutable {
+  calendarAddress: string;
+}
+
+export type ParticipantIdentityUpdate = JmapPatchObject<ParticipantIdentityMutable>;
+
+/** draft-ietf-jmap-calendars-34 3.3. */
+export interface ParticipantIdentitySetRequest extends JmapSetArgs<ParticipantIdentityCreate, ParticipantIdentityUpdate> {
+  /** The identity to make the default once the rest succeeds; "#" and a creation id for one made here. A server not
+   *  allowing it keeps the default it has, with no error. */
+  onSuccessSetIsDefault?: string | null;
 }

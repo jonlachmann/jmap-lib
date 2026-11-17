@@ -17,8 +17,7 @@ export async function discoverIntegrationSession(
 ): Promise<DiscoveredIntegrationSession> {
   const session = await discoverJmapSession({
     baseUrl: config.baseUrl,
-    username: config.username,
-    password: config.password,
+    authorization: createBasicAuthorizationHeader(config.username, config.password),
   });
 
   const capabilities = Object.keys(session.capabilities);

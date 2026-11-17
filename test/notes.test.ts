@@ -23,7 +23,7 @@ function createRecordingClient(methodResponses: unknown[][]) {
   const requests: { using: string[]; methodCalls: [string, Record<string, unknown>, string][] }[] = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       requests.push(JSON.parse(String(init?.body)));
@@ -70,12 +70,12 @@ test("NoteGet.byQueryResult references Note/query ids", () => {
 
 // --- JmapNotes convenience client ---
 
-test("listNoteBooks sends notes capabilities", async () => {
+test("getNoteBooks sends notes capabilities", async () => {
   const { notes, requests } = createRecordingClient([
     ["NoteBook/get", { accountId: "acc", list: [{ id: "nb1", name: "Notes", role: "inbox" }] }],
   ]);
 
-  const result = await notes.listNoteBooks(acc);
+  const result = (await notes.getNoteBooks(acc)).list;
 
   assert.equal(result[0].role, "inbox");
   assert.deepEqual(requests[0].using, [...CORE_NOTES_CAPABILITIES]);

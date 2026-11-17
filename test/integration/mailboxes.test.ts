@@ -106,7 +106,6 @@ test("integration: reports mailbox changes after creating a mailbox", { skip }, 
 
   assert.ok(baseline.state, "expected mailbox state");
 
-  const mailboxClientId = createIntegrationId("mailbox-changes");
   const mailboxId = (await mail.createMailbox(context.accountId, {
     name: createIntegrationId("Mailbox Changes"),
   })).id;
@@ -123,7 +122,6 @@ test("integration: updates a created mailbox", { skip }, async () => {
   const { context, mail } = await createMailIntegrationContext();
   const createdName = createIntegrationId("mailbox-update-created");
   const updatedName = createIntegrationId("mailbox-update-updated");
-  const mailboxClientId = createIntegrationId("mailbox-update");
   const mailboxId = (await mail.createMailbox(context.accountId, {
     name: createdName,
   })).id;

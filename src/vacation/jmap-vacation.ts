@@ -1,14 +1,15 @@
-import { CORE_MAIL_VACATION_CAPABILITIES } from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import { getSetError, type JmapSetResponse } from "../core/set";
-import { AccountId } from "../core/ids";
-import { VacationResponseGet, VacationResponseSet } from "./methods";
+import { CORE_MAIL_VACATION_CAPABILITIES } from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { assertSetOk, type JmapSetResponse } from "../core/set.js";
+import { AccountId } from "../core/ids.js";
+import { VacationResponseGet, VacationResponseSet } from "./methods.js";
 import type {
   VacationResponse,
   VacationResponseGetRequest,
   VacationResponseGetResponse,
   VacationResponseSetRequest,
-} from "./types";
+  VacationResponseUpdate,
+} from "./types.js";
 
 export class JmapVacation {
   constructor(private readonly client: JmapClient) {}
@@ -20,7 +21,7 @@ export class JmapVacation {
     return response.list[0];
   }
 
-  async update(accountId: AccountId, updates: Partial<VacationResponse>): Promise<JmapSetResponse> {
+  async update(accountId: AccountId, updates: VacationResponseUpdate): Promise<JmapSetResponse> {
     const response = await this.client.invoke<VacationResponseSetRequest, JmapSetResponse>(
       new VacationResponseSet({
         accountId: accountId.value,
@@ -29,10 +30,7 @@ export class JmapVacation {
       { capabilities: CORE_MAIL_VACATION_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", "singleton");
-    if (error) {
-      throw new Error(error.description || "Failed to update vacation response");
-    }
+    assertSetOk(response, "vacation response");
 
     return response;
   }

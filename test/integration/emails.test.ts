@@ -106,7 +106,6 @@ test("integration: queries seeded drafts and reports query changes deterministic
   assert.ok(initialQuery.queryState, "expected initial email query state");
 
   const draftAddress = await resolveDraftAddress(context);
-  const firstDraftClientId = createIntegrationId("query-draft-1");
   const firstDraftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),
@@ -115,7 +114,6 @@ test("integration: queries seeded drafts and reports query changes deterministic
     subject: `${marker}-alpha`,
     body: `Body ${marker}-alpha`,
   })).id;
-  const secondDraftClientId = createIntegrationId("query-draft-2");
   const secondDraftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),
@@ -169,7 +167,6 @@ test("integration: reports email changes after creating a draft", { skip }, asyn
   const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftAddress = await resolveDraftAddress(context);
 
-  const firstDraftClientId = createIntegrationId("email-changes-base");
   const firstDraftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),
@@ -183,7 +180,6 @@ test("integration: reports email changes after creating a draft", { skip }, asyn
     const baseline = await context.client.invoke(EmailGet.byIds(context.accountId, [firstDraftId])) as EmailGetResponse;
     assert.ok(baseline.state, "expected email state");
 
-    const secondDraftClientId = createIntegrationId("email-changes-next");
     const secondDraftId = (await mail.createDraft({
       accountId: context.accountId,
       draftsMailboxId: MailboxId.of(drafts.id),
@@ -209,7 +205,6 @@ test("integration: reports thread changes after creating a draft in a new thread
   const drafts = requireMailboxByRole(mailboxes, "drafts");
   const draftAddress = await resolveDraftAddress(context);
 
-  const firstDraftClientId = createIntegrationId("thread-changes-base");
   const firstDraftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),
@@ -227,7 +222,6 @@ test("integration: reports thread changes after creating a draft in a new thread
     const baselineThread = await context.client.invoke(ThreadGet.byIds(context.accountId, [baselineThreadId])) as ThreadGetResponse;
     assert.ok(baselineThread.state, "expected thread state");
 
-    const secondDraftClientId = createIntegrationId("thread-changes-next");
     const secondDraftId = (await mail.createDraft({
       accountId: context.accountId,
       draftsMailboxId: MailboxId.of(drafts.id),

@@ -23,7 +23,7 @@ export async function createTasksIntegrationContext(
   }
 
   const tasksClient = new JmapTasks(context.client);
-  const taskLists = await tasksClient.listTaskLists(context.accountId);
+  const taskLists = (await tasksClient.getTaskLists(context.accountId)).list;
   assert.ok(taskLists.length > 0, "expected at least one task list");
 
   return {

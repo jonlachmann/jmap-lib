@@ -1,14 +1,15 @@
-import type { JmapGetArgs } from "../core/get";
-import type { JmapPatchObject } from "../core/patch";
-import type { JmapSetArgs } from "../core/set";
+import type { JmapGetResponse } from "../core/get.js";
+import type { JmapGetArgs } from "../core/get.js";
+import type { JmapPatchObject } from "../core/patch.js";
+import type { JmapSetArgs } from "../core/set.js";
 
 export interface VacationResponse {
   id: string;
   isEnabled: boolean;
   fromDate: string | null;
   toDate: string | null;
-  subject: string;
-  textBody: string;
+  subject: string | null;
+  textBody: string | null;
   htmlBody: string | null;
 }
 
@@ -23,18 +24,14 @@ export type VacationResponseProperty =
 
 export interface VacationResponseGetRequest extends JmapGetArgs<VacationResponseProperty> {}
 
-export interface VacationResponseGetResponse {
-  accountId: string;
-  state: string;
-  list: VacationResponse[];
-}
+export type VacationResponseGetResponse = JmapGetResponse<VacationResponse>;
 
 export type VacationResponseMutable = {
   isEnabled?: boolean;
   fromDate?: string | null;
   toDate?: string | null;
-  subject?: string;
-  textBody?: string;
+  subject?: string | null;
+  textBody?: string | null;
   htmlBody?: string | null;
 };
 

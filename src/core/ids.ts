@@ -8,16 +8,6 @@ export class AccountId {
   }
 }
 
-export class MailboxId {
-  private constructor(readonly value: string) {
-    Object.freeze(this);
-  }
-
-  static of(value: string): MailboxId {
-    return new MailboxId(value);
-  }
-}
-
 export class CallId {
   private constructor(readonly value: string) {
     Object.freeze(this);

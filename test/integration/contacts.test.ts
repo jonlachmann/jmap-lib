@@ -10,7 +10,7 @@ import {
 import {
   getSingleUserIntegrationSkipReason,
 } from "./helpers/config.js";
-import { createContactsIntegrationContext } from "./helpers/contacts.js";
+import { createContactsIntegrationContext, requireWritableAddressBook } from "./helpers/contacts.js";
 import { createIntegrationId } from "./helpers/ids.js";
 
 const skip = getSingleUserIntegrationSkipReason();
@@ -86,7 +86,9 @@ test("integration: queries contacts with an operator filter when contacts is sup
 test("integration: queries seeded contacts and reports query changes deterministically", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
-  const { context, contacts, addressBook } = setup;
+  const { context, contacts, addressBooks } = setup;
+  const addressBook = requireWritableAddressBook(t, addressBooks);
+  if (!addressBook) return;
   const marker = createIntegrationId("query-contacts");
 
   const initialQuery = await context.client.invoke<ContactCardQueryRequest, ContactCardQueryResponse>(new ContactCardQuery({
@@ -161,9 +163,10 @@ test("integration: queries seeded contacts and reports query changes determinist
 test("integration: creates a contact when contacts is supported", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
-  const { context, contacts, addressBook } = setup;
+  const { context, contacts, addressBooks } = setup;
+  const addressBook = requireWritableAddressBook(t, addressBooks);
+  if (!addressBook) return;
 
-  const contactClientId = createClientId("create-contact");
   const contactId = (await contacts.create(
     context.accountId,
     buildContactPayload(addressBook.id, "Create contact"),
@@ -180,9 +183,10 @@ test("integration: creates a contact when contacts is supported", { skip }, asyn
 test("integration: gets a created contact when contacts is supported", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
-  const { context, contacts, addressBook } = setup;
+  const { context, contacts, addressBooks } = setup;
+  const addressBook = requireWritableAddressBook(t, addressBooks);
+  if (!addressBook) return;
 
-  const contactClientId = createClientId("get-contact");
   const contactId = (await contacts.create(
     context.accountId,
     buildContactPayload(addressBook.id, "Get contact"),
@@ -202,10 +206,11 @@ test("integration: gets a created contact when contacts is supported", { skip },
 test("integration: updates a contact when contacts is supported", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
-  const { context, contacts, addressBook } = setup;
+  const { context, contacts, addressBooks } = setup;
+  const addressBook = requireWritableAddressBook(t, addressBooks);
+  if (!addressBook) return;
 
   const updatedGivenName = `Updated-${Date.now()}`;
-  const contactClientId = createClientId("update-contact");
   const contactId = (await contacts.create(
     context.accountId,
     buildContactPayload(addressBook.id, "Update contact"),
@@ -232,9 +237,10 @@ test("integration: updates a contact when contacts is supported", { skip }, asyn
 test("integration: destroys a contact when contacts is supported", { skip }, async (t) => {
   const setup = await createContactsIntegrationContext(t);
   if (!setup) return;
-  const { context, contacts, addressBook } = setup;
+  const { context, contacts, addressBooks } = setup;
+  const addressBook = requireWritableAddressBook(t, addressBooks);
+  if (!addressBook) return;
 
-  const contactClientId = createClientId("destroy-contact");
   const contactId = (await contacts.create(
     context.accountId,
     buildContactPayload(addressBook.id, "Destroy contact"),
@@ -246,13 +252,11 @@ test("integration: destroys a contact when contacts is supported", { skip }, asy
   assert.equal(contact, undefined);
 });
 
-function createClientId(prefix: string): string {
-  return `${prefix}-${Date.now()}`;
-}
-
 function buildContactPayload(addressBookId: string, givenName: string) {
   return {
-    addressBookIds: { [addressBookId]: true },
+    "@type": "Card" as const,
+    version: "1.0",
+    addressBookIds: { [addressBookId]: true as const },
     kind: "individual" as const,
     name: {
       components: [

@@ -1,5 +1,6 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId, CallId } from "../core/ids";
+import { resultOf } from "../core/reference.js";
+import type { JmapMethod } from "../core/method.js";
+import { AccountId, CallId } from "../core/ids.js";
 import type {
   CalendarChangesRequest,
   CalendarChangesResponse,
@@ -18,9 +19,13 @@ import type {
   CalendarGetResponse,
   CalendarSetRequest,
   CalendarEventProperty,
+  ParticipantIdentityChangesRequest,
+  ParticipantIdentityChangesResponse,
   ParticipantIdentityGetRequest,
   ParticipantIdentityGetResponse,
-} from "./types";
+  ParticipantIdentitySetRequest,
+} from "./types.js";
+import type { JmapSetResponse } from "../core/set.js";
 
 export class CalendarGet implements JmapMethod<CalendarGetRequest, CalendarGetResponse> {
   readonly methodName = "Calendar/get";
@@ -54,7 +59,7 @@ export class CalendarEventChanges implements JmapMethod<CalendarEventChangesRequ
 }
 
 export class CalendarSet
-  implements JmapMethod<CalendarSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<CalendarSetRequest, JmapSetResponse>
 {
   readonly methodName = "Calendar/set";
   readonly arguments: CalendarSetRequest;
@@ -111,18 +116,14 @@ export class CalendarEventGet
   ): CalendarEventGet {
     return new CalendarEventGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: queryCallId.value,
-        name: "CalendarEvent/query",
-        path: "/ids",
-      },
+      "#ids": resultOf(queryCallId, "CalendarEvent/query", "/ids"),
       properties,
     });
   }
 }
 
 export class CalendarEventSet
-  implements JmapMethod<CalendarEventSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<CalendarEventSetRequest, JmapSetResponse>
 {
   readonly methodName = "CalendarEvent/set";
   readonly arguments: CalendarEventSetRequest;
@@ -153,5 +154,25 @@ export class ParticipantIdentityGet implements JmapMethod<ParticipantIdentityGet
 
   static all(accountId: AccountId): ParticipantIdentityGet {
     return new ParticipantIdentityGet({ accountId: accountId.value, ids: null });
+  }
+}
+
+export class ParticipantIdentityChanges
+  implements JmapMethod<ParticipantIdentityChangesRequest, ParticipantIdentityChangesResponse>
+{
+  readonly methodName = "ParticipantIdentity/changes";
+  readonly arguments: ParticipantIdentityChangesRequest;
+
+  constructor(args: ParticipantIdentityChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class ParticipantIdentitySet implements JmapMethod<ParticipantIdentitySetRequest, JmapSetResponse> {
+  readonly methodName = "ParticipantIdentity/set";
+  readonly arguments: ParticipantIdentitySetRequest;
+
+  constructor(args: ParticipantIdentitySetRequest) {
+    this.arguments = args;
   }
 }

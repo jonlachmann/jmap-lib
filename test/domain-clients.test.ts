@@ -6,15 +6,11 @@ import {
   CORE_CALENDARS_CAPABILITIES,
   CORE_CALENDARS_PARSE_CAPABILITIES,
   CORE_CONTACTS_CAPABILITIES,
-  CORE_CONTACTS_PARSE_CAPABILITIES,
   CORE_MAIL_SUBMISSION_CAPABILITIES,
   CORE_MAIL_VACATION_CAPABILITIES,
   CORE_SIEVE_CAPABILITIES,
   JMAP_CALENDARS_CAPABILITY,
   JMAP_CONTACTS_CAPABILITY,
-  JMAP_SIEVE_CAPABILITY,
-  JMAP_SUBMISSION_CAPABILITY,
-  JMAP_VACATION_RESPONSE_CAPABILITY,
   JmapCalendars,
   JmapClient,
   JmapContacts,
@@ -28,7 +24,7 @@ import {
 test("JmapClient exposes configured capabilities", () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", JMAP_CONTACTS_CAPABILITY],
     fetch: async () => new Response(JSON.stringify({ methodResponses: [] }), { status: 200 }),
   });
@@ -42,7 +38,7 @@ test("JmapQuota.get delegates to Quota/get", async () => {
   let using: string[] | undefined;
   const quota = new JmapQuota(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -66,7 +62,7 @@ test("JmapIdentities.list uses submission capabilities", async () => {
   let using: string[] | undefined;
   const identities = new JmapIdentities(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -89,7 +85,7 @@ test("JmapIdentities.changes uses submission capabilities", async () => {
   let using: string[] | undefined;
   const identities = new JmapIdentities(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -116,7 +112,7 @@ test("JmapVacation.get uses vacation capabilities", async () => {
   let using: string[] | undefined;
   const vacation = new JmapVacation(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -135,11 +131,11 @@ test("JmapVacation.get uses vacation capabilities", async () => {
   assert.deepEqual(using, [...CORE_MAIL_VACATION_CAPABILITIES]);
 });
 
-test("JmapContacts.listAddressBooks uses contacts capabilities", async () => {
+test("JmapContacts.getAddressBooks uses contacts capabilities", async () => {
   let using: string[] | undefined;
   const contacts = new JmapContacts(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -152,46 +148,17 @@ test("JmapContacts.listAddressBooks uses contacts capabilities", async () => {
     },
   }));
 
-  const result = await contacts.listAddressBooks(AccountId.of("acc"));
+  const result = (await contacts.getAddressBooks(AccountId.of("acc"))).list;
 
   assert.equal(result[0].id, "ab1");
   assert.deepEqual(using, [...CORE_CONTACTS_CAPABILITIES]);
 });
 
-test("JmapContacts.parseCards uploads and parses in one request, in the order given", async () => {
-  let request: { using: string[]; methodCalls: [string, any, string][] } | undefined;
-  const contacts = new JmapContacts(new JmapClient({
-    endpoint: "https://example.test/jmap",
-    accessToken: "secret",
-    capabilities: ["urn:ietf:params:jmap:core"],
-    fetch: async (_url, init) => {
-      request = JSON.parse(String(init?.body));
-      return new Response(
-        JSON.stringify({
-          methodResponses: [
-            ["Blob/upload", { accountId: "acc", created: { card0: { id: "b0", type: "text/vcard", size: 3 }, card1: { id: "b1", type: "text/vcard", size: 3 } } }, "0"],
-            ["ContactCard/parse", { accountId: "acc", parsed: { b0: { name: { full: "Anna" } } }, notParsable: ["b1"] }, "1"],
-          ],
-        }),
-        { status: 200 },
-      );
-    },
-  }));
-
-  const result = await contacts.parseCards(AccountId.of("acc"), [new TextEncoder().encode("one"), new TextEncoder().encode("two")]);
-
-  assert.deepEqual(result, [{ name: { full: "Anna" } }, null]);
-  assert.deepEqual(request?.using, [...CORE_CONTACTS_PARSE_CAPABILITIES]);
-  assert.deepEqual(request?.methodCalls.map((call) => call[0]), ["Blob/upload", "ContactCard/parse"]);
-  assert.equal(request?.methodCalls[0][1].create.card0.data[0]["data:asBase64"], btoa("one"));
-  assert.deepEqual(request?.methodCalls[1][1].blobIds, ["#card0", "#card1"]);
-});
-
-test("JmapCalendars.list uses calendar capabilities", async () => {
+test("JmapCalendars.getCalendars uses calendar capabilities", async () => {
   let using: string[] | undefined;
   const calendars = new JmapCalendars(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -204,7 +171,7 @@ test("JmapCalendars.list uses calendar capabilities", async () => {
     },
   }));
 
-  const result = await calendars.list(AccountId.of("acc"));
+  const result = (await calendars.getCalendars(AccountId.of("acc"))).list;
 
   assert.equal(result[0].id, "cal1");
   assert.deepEqual(using, [...CORE_CALENDARS_CAPABILITIES]);
@@ -214,7 +181,7 @@ test("JmapCalendars.parse uses calendars parse capabilities", async () => {
   let using: string[] | undefined;
   const calendars = new JmapCalendars(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -237,7 +204,7 @@ test("JmapSieve.list uses sieve capabilities", async () => {
   let using: string[] | undefined;
   const sieve = new JmapSieve(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -260,7 +227,7 @@ test("JmapMail.submit uses submission capabilities", async () => {
   let using: string[] | undefined;
   const mail = new JmapMail(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -288,7 +255,7 @@ test("JmapMail changes helpers delegate to standard /changes methods", async () 
 
   const mail = new JmapMail(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -335,7 +302,7 @@ test("JmapMail mailbox query and set helpers delegate to mailbox methods", async
 
   const mail = new JmapMail(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -411,38 +378,43 @@ test("JmapMail mailbox query and set helpers delegate to mailbox methods", async
   ]);
 });
 
-test("JmapMail.getThreadEmails sorts newest first", async () => {
-  const responses = [
-    {
-      methodResponses: [["Thread/get", { accountId: "acc", list: [{ id: "thread-1", emailIds: ["e1", "e2"] }] }, "0"]],
-    },
-    {
-      methodResponses: [["Email/get", {
-        accountId: "acc",
-        list: [
-          { id: "e1", threadId: "thread-1", mailboxIds: {}, receivedAt: "2024-01-01T00:00:00Z" },
-          { id: "e2", threadId: "thread-1", mailboxIds: {}, receivedAt: "2024-02-01T00:00:00Z" },
-        ],
-      }, "0"]],
-    },
-  ];
-
+test("JmapMail.getThreadEmails fetches the thread's emails in one request, newest first", async () => {
+  const requests: Array<{ methodCalls: unknown[][] }> = [];
   const mail = new JmapMail(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-    fetch: async () => new Response(JSON.stringify(responses.shift()), { status: 200 }),
+    fetch: async (_url, init) => {
+      requests.push(JSON.parse(String(init?.body)));
+      return new Response(JSON.stringify({
+        methodResponses: [
+          ["Thread/get", { accountId: "acc", list: [{ id: "thread-1", emailIds: ["e1", "e2"] }] }, "0"],
+          ["Email/get", {
+            accountId: "acc",
+            list: [
+              { id: "e1", threadId: "thread-1", mailboxIds: {}, receivedAt: "2024-01-01T00:00:00Z" },
+              { id: "e2", threadId: "thread-1", mailboxIds: {}, receivedAt: "2024-02-01T00:00:00Z" },
+            ],
+          }, "1"],
+        ],
+      }), { status: 200 });
+    },
   }));
 
   const emails = await mail.getThreadEmails(AccountId.of("acc"), "thread-1");
 
   assert.deepEqual(emails.map((email) => email.id), ["e2", "e1"]);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].methodCalls[1][1], {
+    accountId: "acc",
+    "#ids": { resultOf: "0", name: "Thread/get", path: "/list/*/emailIds" },
+  });
 });
 
 test("JmapMail.updateKeywords surfaces set errors", async () => {
   const mail = new JmapMail(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async () =>
       new Response(

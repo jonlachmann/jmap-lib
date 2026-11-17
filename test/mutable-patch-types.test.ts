@@ -73,8 +73,8 @@ test("what isn't a valid update stays refused", () => {
   refused.push({ members: { "ADA-1": "yes" } } satisfies ContactCardUpdate);
   // @ts-expect-error a path into a property that holds no keys
   refused.push({ "kind/group": "group" } satisfies ContactCardUpdate);
-  // @ts-expect-error a value outside the property's union
-  refused.push({ kind: "robot" } satisfies ContactCardUpdate);
+  // @ts-expect-error a member set false, where a set's values are true
+  refused.push({ "members/ADA-1": false } satisfies ContactCardUpdate);
   // @ts-expect-error an email's keyword set as a string
   refused.push({ "keywords/$seen": "true" } satisfies EmailUpdate);
   // @ts-expect-error mailbox ids given as a list

@@ -1,12 +1,13 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId } from "../core/ids";
+import type { JmapMethod } from "../core/method.js";
+import type { JmapSetResponse } from "../core/set.js";
+import { AccountId } from "../core/ids.js";
 import type {
   SieveScriptGetRequest,
   SieveScriptGetResponse,
   SieveScriptSetRequest,
   SieveScriptValidateRequest,
   SieveScriptValidateResponse,
-} from "./types";
+} from "./types.js";
 
 export class SieveScriptGet implements JmapMethod<SieveScriptGetRequest, SieveScriptGetResponse> {
   readonly methodName = "SieveScript/get";
@@ -22,7 +23,7 @@ export class SieveScriptGet implements JmapMethod<SieveScriptGetRequest, SieveSc
 }
 
 export class SieveScriptSet
-  implements JmapMethod<SieveScriptSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<SieveScriptSetRequest, JmapSetResponse>
 {
   readonly methodName = "SieveScript/set";
   readonly arguments: SieveScriptSetRequest;

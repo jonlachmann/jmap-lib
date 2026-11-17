@@ -40,14 +40,15 @@ test("JmapPatchObject supports both whole-property updates and nested patch path
   assert.equal(patch["mailboxIds/archive"], true);
 });
 
-test("EmailUpdate is a JMAP patch object over the email mutable shape", () => {
+test("EmailUpdate patches only mailboxes and keywords (RFC 8621 4.6)", () => {
   const update: EmailUpdate = {
-    subject: "Updated",
     "keywords/$flagged": true,
     "mailboxIds/inbox": true,
   };
+  // @ts-expect-error An Email's other properties are fixed once it is made
+  const immutable: EmailUpdate = { subject: "Updated" };
 
-  assert.equal(update.subject, "Updated");
+  assert.ok(immutable);
   assert.equal(update["keywords/$flagged"], true);
   assert.equal(update["mailboxIds/inbox"], true);
 });

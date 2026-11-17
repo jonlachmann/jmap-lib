@@ -1,4 +1,4 @@
-import { CallId } from "./ids";
+import { CallId } from "./ids.js";
 
 export type RawMethodResponse = [string, unknown, string];
 export type RawJmapResponse = {
@@ -63,16 +63,6 @@ export class JmapResponse {
 
     if (!match) {
       throw new Error(`Missing JMAP response for callId "${callId.value}"`);
-    }
-
-    return this.unwrap<T>(match, methodName);
-  }
-
-  first<T>(methodName: string): T {
-    const match = this.methodResponses.find(([name]) => name === methodName || name === "error");
-
-    if (!match) {
-      throw new Error(`Missing JMAP response for method "${methodName}"`);
     }
 
     return this.unwrap<T>(match, methodName);

@@ -23,7 +23,7 @@ export async function createContactsIntegrationContext(
   }
 
   const contacts = new JmapContacts(context.client);
-  const addressBooks = await contacts.listAddressBooks(context.accountId);
+  const addressBooks = (await contacts.getAddressBooks(context.accountId)).list;
   assert.ok(addressBooks.length > 0, "expected at least one address book");
 
   return {
@@ -32,4 +32,11 @@ export async function createContactsIntegrationContext(
     addressBooks,
     addressBook: addressBooks[0],
   };
+}
+
+/** Picks an address book the user may add contacts to (RFC 9610 2), or skips the test when there is none. */
+export function requireWritableAddressBook(t: TestContext, addressBooks: AddressBook[]): AddressBook | undefined {
+  const writable = addressBooks.find((addressBook) => addressBook.myRights?.mayWrite === true);
+  if (!writable) t.skip("the account has no address book the user may write to");
+  return writable;
 }

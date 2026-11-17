@@ -5,25 +5,47 @@
  * which the server tells it at once what changed while it was away.
  */
 
-import type { StateChange } from "./event-source";
+import type { JmapAuthorization } from "./client.js";
+import { expandUriTemplate } from "./session.js";
 
-/** "reconnecting" after the first failure; "offline" after repeated failures or close(). */
-export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
+/** A per-account map of type name → state string. */
+export type TypeState = Record<string, string>;
+
+/** The StateChange object pushed by the server (RFC 8620 7.1). */
+export interface StateChange {
+  "@type": "StateChange";
+  changed: Record<string, TypeState>;
+}
+
+/**
+ * "reconnecting" after the first failure, "unreachable" once a reconnect has failed too (it keeps retrying),
+ * "unauthorized" when there is no authorization or the server refused it with 401 or 403 (it stops), "closed" after
+ * close().
+ */
+export type ConnectionState = "connecting" | "live" | "reconnecting" | "unreachable" | "unauthorized" | "closed";
 
 export type JmapEventStreamOptions = {
   /** The eventSourceUrl from the JMAP Session object (URI template). */
   eventSourceUrl: string;
-  /** Returns a currently-valid bearer token. Called again before every reconnect. */
-  getToken: () => Promise<string | null> | string | null;
+  /**
+   * Read again before every reconnect, so a function can give a token that is still valid. Null (signed out) stops the
+   * stream; a function that throws is retried as a network failure is.
+   */
+  authorization: JmapAuthorization;
   /** Type names to subscribe to, e.g. ["Email", "Mailbox"]. Default: all ("*"). */
   types?: string[];
-  /** Ping interval in seconds the server should use. Default: 30. */
+  /** Ping interval in seconds the server should use; 0 asks for none, and turns off the stall timeout. Default: 30. */
   ping?: number;
   /** Called on every StateChange event. */
   onStateChange: (stateChange: StateChange) => void;
+  /**
+   * Called with a frame that isn't JSON, or what onStateChange threw, neither of which closes the connection; and with
+   * the reason the stream stopped as "unauthorized".
+   */
+  onError?: (error: unknown) => void;
   /** Called whenever the connection state changes. */
   onConnectionChange?: (state: ConnectionState) => void;
-  /** Reconnect after this long without data. Default: 2.5 × the ping interval. */
+  /** Reconnect after this long without data. Default: 2.5 × the ping interval; none when ping is 0. */
   stallTimeoutMs?: number;
   /** Custom fetch implementation. Default: globalThis.fetch. */
   fetch?: typeof globalThis.fetch;
@@ -95,24 +117,17 @@ function parseFrame(raw: string): { event: string; data: string | null; id?: str
   return { event, data: data.length === 0 ? null : data.join("\n"), id };
 }
 
-/** Expand the RFC 6570 level-1 URI template from the session. */
-function expandUrl(template: string, vars: { types: string[]; ping: number }): string {
-  return template
-    .replace("{types}", encodeURIComponent(vars.types.join(",")))
-    .replace("{closeafter}", "no")
-    .replace("{ping}", String(vars.ping));
-}
-
 /**
- * Connects to the JMAP event-source endpoint, reconnecting on failure until closed.
+ * Connects to the JMAP event-source endpoint, reconnecting on failure until closed or refused authorization.
  */
 export function connectEventStream(options: JmapEventStreamOptions): JmapEventStream {
   const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   const pingSeconds = options.ping ?? 30;
-  const stallTimeoutMs = options.stallTimeoutMs ?? pingSeconds * 2500;
-  const url = expandUrl(options.eventSourceUrl, {
-    types: options.types ?? ["*"],
-    ping: pingSeconds,
+  const stallTimeoutMs = options.stallTimeoutMs ?? (pingSeconds > 0 ? pingSeconds * 2500 : undefined);
+  const url = expandUriTemplate(options.eventSourceUrl, {
+    types: (options.types ?? ["*"]).join(","),
+    closeafter: "no",
+    ping: String(pingSeconds),
   });
 
   let closed = false;
@@ -128,59 +143,66 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
     options.onConnectionChange?.(next);
   }
 
-  async function run(): Promise<void> {
-    controller = new AbortController();
-    // Abort if no data arrives in time; a dead peer can leave the socket open
-    let stallTimer = setTimeout(() => controller?.abort(), stallTimeoutMs);
-    const resetStall = () => {
-      clearTimeout(stallTimer);
-      stallTimer = setTimeout(() => controller?.abort(), stallTimeoutMs);
-    };
+  // Abort if no data arrives in time; a dead peer can leave the socket open
+  let stallTimer: ReturnType<typeof setTimeout> | undefined;
+  function resetStall(): void {
+    clearTimeout(stallTimer);
+    if (stallTimeoutMs !== undefined) stallTimer = setTimeout(() => controller?.abort(), stallTimeoutMs);
+  }
 
-    try {
-      const token = await options.getToken();
-      if (!token) throw new Error("Not signed in");
+  /** Reads the stream until it ends; returns why it was refused when it has no authorization, and throws on a failure. */
+  async function listen(signal: AbortSignal): Promise<string | undefined> {
+    const authorization = typeof options.authorization === "string" ? options.authorization : await options.authorization();
+    if (!authorization) return "No authorization for the event stream: signed out";
 
-      const response = await doFetch(url, {
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: "text/event-stream",
-          ...(lastEventId === undefined ? {} : { "last-event-id": lastEventId }),
-        },
-        signal: controller.signal,
-        cache: "no-store",
-      });
+    const response = await doFetch(url, {
+      headers: {
+        authorization,
+        accept: "text/event-stream",
+        ...(lastEventId === undefined ? {} : { "last-event-id": lastEventId }),
+      },
+      signal,
+      cache: "no-store",
+    });
 
-      if (!response.ok || !response.body) {
-        throw new Error(`Event stream failed: HTTP ${response.status}`);
-      }
+    if (response.status === 401 || response.status === 403) return `Event stream refused: HTTP ${response.status}`;
+    if (!response.ok || !response.body) throw new Error(`Event stream failed: HTTP ${response.status}`);
 
-      attempt = 0;
-      setState("live");
+    attempt = 0;
+    setState("live");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      const parser = new SseParser();
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const parser = new SseParser();
 
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        resetStall();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return undefined;
+      resetStall();
 
-        const frames = parser.push(decoder.decode(value, { stream: true }));
-        lastEventId = parser.lastEventId ?? lastEventId;
-        for (const frame of frames) {
-          // Other events, such as ping, only reset the stall timer
-          if (frame.event !== "state") continue;
-          try {
-            options.onStateChange(JSON.parse(frame.data) as StateChange);
-          } catch {
-            // Neither a malformed frame nor a throwing handler closes the connection
-          }
+      const frames = parser.push(decoder.decode(value, { stream: true }));
+      lastEventId = parser.lastEventId ?? lastEventId;
+      for (const frame of frames) {
+        // Other events, such as ping, only reset the stall timer
+        if (frame.event !== "state") continue;
+        try {
+          options.onStateChange(JSON.parse(frame.data) as StateChange);
+        } catch (error) {
+          options.onError?.(error);
         }
       }
+    }
+  }
+
+  async function run(): Promise<void> {
+    controller = new AbortController();
+    resetStall();
+
+    let refusal: string | undefined;
+    try {
+      refusal = await listen(controller.signal);
     } catch {
-      // Errors, including a stall abort, fall through to the reconnect below
+      // Network errors, a stall abort and other statuses fall through to the reconnect below
     } finally {
       clearTimeout(stallTimer);
       controller = null;
@@ -188,8 +210,14 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
 
     if (closed) return;
 
+    if (refusal !== undefined) {
+      setState("unauthorized");
+      options.onError?.(new Error(refusal));
+      return;
+    }
+
     // Exponential backoff with jitter
-    setState(attempt === 0 ? "reconnecting" : "offline");
+    setState(attempt === 0 ? "reconnecting" : "unreachable");
     const delay = Math.min(BASE_RETRY_MS * 2 ** attempt, MAX_RETRY_MS);
     attempt += 1;
     retryTimer = setTimeout(run, delay * (0.5 + Math.random() * 0.5));
@@ -202,7 +230,7 @@ export function connectEventStream(options: JmapEventStreamOptions): JmapEventSt
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
       controller?.abort();
-      setState("offline");
+      setState("closed");
     },
     get state() {
       return state;

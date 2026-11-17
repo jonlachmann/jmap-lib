@@ -1,10 +1,17 @@
-import { CORE_TASKS_CAPABILITIES, JMAP_TASKS_ALERTS_CAPABILITY, JMAP_TASKS_RECURRENCES_CAPABILITY } from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import type { JmapChangesResponse } from "../core/changes";
-import type { FilterOperatorCondition } from "../core/query";
-import type { JmapCreated, JmapSetResponse } from "../core/set";
-import { CREATION_ID, createdOne, getSetError } from "../core/set";
+import { paginate } from "../core/paginate.js";
+import {
+  CORE_TASKS_CAPABILITIES,
+  JMAP_TASKS_ALERTS_CAPABILITY,
+  JMAP_TASKS_ASSIGNEES_CAPABILITY,
+  JMAP_TASKS_CUSTOMTIMEZONES_CAPABILITY,
+  JMAP_TASKS_MULTILINGUAL_CAPABILITY,
+  JMAP_TASKS_RECURRENCES_CAPABILITY,
+} from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import { inAny, type JmapFilter } from "../core/query.js";
+import type { JmapCreated, JmapSetResponse } from "../core/set.js";
+import { CREATION_ID, createdOne, assertSetOk } from "../core/set.js";
 import {
   TaskGet,
   TaskListChanges,
@@ -18,18 +25,19 @@ import {
   TaskNotificationGet,
   TaskNotificationSet,
   TaskNotificationQuery,
-} from "./methods";
+} from "./methods.js";
 import type {
   Task,
   TaskChangesRequest,
+  TaskChangesResponse,
   TaskCreate,
   TaskCopyRequest,
   TaskCopyResponse,
   TaskFilter,
   TaskGetRequest,
   TaskGetResponse,
-  TaskList,
   TaskListChangesRequest,
+  TaskListChangesResponse,
   TaskListCreate,
   TaskListGetRequest,
   TaskListGetResponse,
@@ -39,7 +47,6 @@ import type {
   TaskQueryChangesRequest,
   TaskQueryChangesResponse,
   TaskQueryRequest,
-  TaskQueryResponse,
   TaskQuerySort,
   TaskSetRequest,
   TaskUpdate,
@@ -48,10 +55,9 @@ import type {
   TaskNotificationGetRequest,
   TaskNotificationGetResponse,
   TaskNotificationQueryRequest,
-  TaskNotificationQueryResponse,
   TaskNotificationQuerySort,
   TaskNotificationSetRequest,
-} from "./types";
+} from "./types.js";
 
 export const DEFAULT_TASK_PROPERTIES = [
   "id",
@@ -66,7 +72,7 @@ export const DEFAULT_TASK_PROPERTIES = [
   "descriptionContentType",
   "start",
   "due",
-  "duration",
+  "estimatedDuration",
   "timeZone",
   "showWithoutTime",
   "progress",
@@ -78,7 +84,6 @@ export const DEFAULT_TASK_PROPERTIES = [
   "sortOrder",
   "priority",
   "privacy",
-  "replyTo",
   "color",
   "keywords",
   "categories",
@@ -90,40 +95,51 @@ export const DEFAULT_TASK_PROPERTIES = [
   "comments",
 ] as const satisfies readonly TaskProperty[];
 
+/** The task properties each extension adds, from RFC 8984's property groups the draft names. */
+const EXTENSION_PROPERTIES: Record<string, readonly TaskProperty[]> = {
+  [JMAP_TASKS_RECURRENCES_CAPABILITY]: [
+    "baseTaskId", "recurrenceId", "recurrenceIdTimeZone", "recurrenceRules", "excludedRecurrenceRules", "recurrenceOverrides", "excluded",
+  ],
+  [JMAP_TASKS_ASSIGNEES_CAPABILITY]: [
+    "isOrigin", "participants", "replyTo", "sentBy", "requestStatus", "mayInviteSelf", "mayInviteOthers", "hideAttendees",
+  ],
+  [JMAP_TASKS_ALERTS_CAPABILITY]: ["useDefaultAlerts", "alerts"],
+  [JMAP_TASKS_MULTILINGUAL_CAPABILITY]: ["localizations"],
+  [JMAP_TASKS_CUSTOMTIMEZONES_CAPABILITY]: ["timeZones"],
+};
+
 export class JmapTasks {
   constructor(private readonly client: JmapClient) {}
 
-  /** The capabilities a request names: the core ones, and the extensions the server has (draft-ietf-jmap-tasks 1.6). */
-  capabilities(): string[] {
-    const offered = this.client.getCapabilities();
-    const extensions = [JMAP_TASKS_RECURRENCES_CAPABILITY, JMAP_TASKS_ALERTS_CAPABILITY].filter((uri) => offered.includes(uri));
+  /**
+   * The capabilities a request names: the core ones, and the extensions the account has (draft-ietf-jmap-tasks 1.6),
+   * the same ones defaultProperties asks for properties of.
+   */
+  capabilities(accountId: AccountId): string[] {
+    const extensions = Object.keys(EXTENSION_PROPERTIES)
+      .filter((capability) => this.client.accountHasCapability(accountId.value, capability));
     return [...CORE_TASKS_CAPABILITIES, ...extensions];
   }
 
-  /** The properties a task is fetched with: the core ones, and those of the extensions the server has. */
-  defaultProperties(): TaskProperty[] {
-    const offered = this.client.getCapabilities();
+  /**
+   * The properties a task is fetched with: the core ones, and those of each extension the account has
+   * (draft-ietf-jmap-tasks 4.4–4.8), so a task fetched, changed and saved keeps them.
+   */
+  defaultProperties(accountId: AccountId): TaskProperty[] {
     return [
       ...DEFAULT_TASK_PROPERTIES,
-      ...(offered.includes(JMAP_TASKS_RECURRENCES_CAPABILITY) ? ["recurrenceRules" as const] : []),
-      ...(offered.includes(JMAP_TASKS_ALERTS_CAPABILITY) ? ["alerts" as const] : []),
+      ...Object.entries(EXTENSION_PROPERTIES)
+        .filter(([capability]) => this.client.accountHasCapability(accountId.value, capability))
+        .flatMap(([, properties]) => properties),
     ];
   }
 
   // --- TaskList operations ---
 
-  async listTaskLists(accountId: AccountId): Promise<TaskList[]> {
-    const response = await this.client.invoke<TaskListGetRequest, TaskListGetResponse>(
-      TaskListGet.all(accountId),
-      { capabilities: this.capabilities() },
-    );
-    return response.list;
-  }
-
   async getTaskLists(accountId: AccountId): Promise<TaskListGetResponse> {
     return this.client.invoke<TaskListGetRequest, TaskListGetResponse>(
       TaskListGet.all(accountId),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
   }
 
@@ -131,14 +147,14 @@ export class JmapTasks {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<TaskListChangesRequest, JmapChangesResponse>(
+  ): Promise<TaskListChangesResponse> {
+    return this.client.invoke<TaskListChangesRequest, TaskListChangesResponse>(
       new TaskListChanges({
         accountId: accountId.value,
         sinceState,
         maxChanges: options?.maxChanges,
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
   }
 
@@ -151,7 +167,7 @@ export class JmapTasks {
         accountId: accountId.value,
         create: { [CREATION_ID]: taskList },
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
     return createdOne(response, "task list");
@@ -167,13 +183,10 @@ export class JmapTasks {
         accountId: accountId.value,
         update: { [taskListId]: updates },
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
-    const error = getSetError(response, "notUpdated", taskListId);
-    if (error) {
-      throw new Error(error.description || "Failed to update task list");
-    }
+    assertSetOk(response, "task list");
 
     return response;
   }
@@ -189,13 +202,10 @@ export class JmapTasks {
         destroy: [taskListId],
         onDestroyRemoveTasks,
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
-    const error = getSetError(response, "notDestroyed", taskListId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete task list");
-    }
+    assertSetOk(response, "task list");
 
     return response;
   }
@@ -205,54 +215,44 @@ export class JmapTasks {
   async listTasks(
     accountId: AccountId,
     taskListIds?: readonly string[],
-    properties: readonly TaskProperty[] = this.defaultProperties(),
+    properties: readonly TaskProperty[] = this.defaultProperties(accountId),
   ): Promise<Task[]> {
-    const PAGE_SIZE = 256;
-    const allTasks: Task[] = [];
-    let position = 0;
-
-    for (;;) {
-      const batch = this.client.batch({ capabilities: this.capabilities() });
-      const queryCallId = batch.call(new TaskQuery({
+    // inAny gives no filter for no ids, which would list every one
+    if (taskListIds?.length === 0) return [];
+    return paginate<Task>(
+      this.client,
+      this.capabilities(accountId),
+      (position, limit) => new TaskQuery({
         accountId: accountId.value,
-        filter: taskListIds?.length ? { inTaskLists: [...taskListIds] } : undefined,
-        limit: PAGE_SIZE,
+        filter: inAny("inTaskList", taskListIds),
         position,
-        calculateTotal: true,
-      }));
-      const getCallId = batch.call(TaskGet.byQueryResult(accountId, queryCallId, properties));
-      const response = await batch.send();
-
-      const queryResult = response.get<TaskQueryResponse>(queryCallId, "Task/query");
-      const tasks = response.get<TaskGetResponse>(getCallId, "Task/get").list;
-      allTasks.push(...tasks);
-
-      const total = queryResult.total ?? tasks.length;
-      position += tasks.length;
-      if (position >= total || tasks.length < PAGE_SIZE) break;
-    }
-
-    return allTasks;
+        limit,
+      }),
+      (queryCallId) => TaskGet.byQueryResult(accountId, queryCallId, properties),
+    );
   }
 
   async queryTasks(
     accountId: AccountId,
-    filter: FilterOperatorCondition<TaskFilter>,
+    filter: JmapFilter<TaskFilter>,
     options?: {
       sort?: readonly TaskQuerySort[];
       limit?: number;
+      /** The zone the filter's after and before are read in. */
+      timeZone?: string;
       properties?: readonly TaskProperty[];
     },
   ): Promise<Task[]> {
-    const batch = this.client.batch({ capabilities: this.capabilities() });
+    const batch = this.client.batch({ capabilities: this.capabilities(accountId) });
     const queryCallId = batch.call(new TaskQuery({
       accountId: accountId.value,
       filter,
       sort: options?.sort,
       limit: options?.limit ?? 100,
+      timeZone: options?.timeZone,
     } satisfies TaskQueryRequest));
     const getCallId = batch.call(
-      TaskGet.byQueryResult(accountId, queryCallId, options?.properties ?? this.defaultProperties()),
+      TaskGet.byQueryResult(accountId, queryCallId, options?.properties ?? this.defaultProperties(accountId)),
     );
     const response = await batch.send();
     return response.get<TaskGetResponse>(getCallId, "Task/get").list;
@@ -261,7 +261,7 @@ export class JmapTasks {
   async queryTaskChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<TaskFilter>;
+      filter?: JmapFilter<TaskFilter>;
       sort?: readonly TaskQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -279,18 +279,18 @@ export class JmapTasks {
         upToId: options.upToId,
         calculateTotal: options.calculateTotal,
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
   }
 
   async getTask(
     accountId: AccountId,
     taskId: string,
-    properties: readonly TaskProperty[] = this.defaultProperties(),
+    properties: readonly TaskProperty[] = this.defaultProperties(accountId),
   ): Promise<Task | undefined> {
     const response = await this.client.invoke<TaskGetRequest, TaskGetResponse>(
       TaskGet.byIds(accountId, [taskId], properties),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
     return response.list[0];
   }
@@ -299,11 +299,11 @@ export class JmapTasks {
   async getTasks(
     accountId: AccountId,
     ids: readonly string[],
-    properties: readonly TaskProperty[] = this.defaultProperties(),
+    properties: readonly TaskProperty[] = this.defaultProperties(accountId),
   ): Promise<TaskGetResponse> {
     return this.client.invoke<TaskGetRequest, TaskGetResponse>(
       TaskGet.byIds(accountId, ids, properties),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
   }
 
@@ -311,14 +311,14 @@ export class JmapTasks {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<TaskChangesRequest, JmapChangesResponse>(
+  ): Promise<TaskChangesResponse> {
+    return this.client.invoke<TaskChangesRequest, TaskChangesResponse>(
       new TaskChanges({
         accountId: accountId.value,
         sinceState,
         maxChanges: options?.maxChanges,
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
   }
 
@@ -331,7 +331,7 @@ export class JmapTasks {
         accountId: accountId.value,
         create: { [CREATION_ID]: task },
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
     return createdOne(response, "task");
@@ -347,13 +347,10 @@ export class JmapTasks {
         accountId: accountId.value,
         update: { [taskId]: updates },
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
-    const error = getSetError(response, "notUpdated", taskId);
-    if (error) {
-      throw new Error(error.description || "Failed to update task");
-    }
+    assertSetOk(response, "task");
 
     return response;
   }
@@ -364,13 +361,10 @@ export class JmapTasks {
         accountId: accountId.value,
         destroy: [taskId],
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
-    const error = getSetError(response, "notDestroyed", taskId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete task");
-    }
+    assertSetOk(response, "task");
 
     return response;
   }
@@ -378,7 +372,7 @@ export class JmapTasks {
   async copyTask(
     accountId: AccountId,
     fromAccountId: AccountId,
-    task: TaskCreate,
+    task: TaskCreate & { id: string },
     options?: {
       onSuccessDestroyOriginal?: boolean;
     },
@@ -390,7 +384,7 @@ export class JmapTasks {
         create: { [CREATION_ID]: task },
         onSuccessDestroyOriginal: options?.onSuccessDestroyOriginal,
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
     return createdOne(response, "task");
@@ -402,27 +396,28 @@ export class JmapTasks {
     const response = await this.client.invoke<
       TaskNotificationGetRequest,
       TaskNotificationGetResponse
-    >(TaskNotificationGet.all(accountId), { capabilities: this.capabilities() });
+    >(TaskNotificationGet.all(accountId), { capabilities: this.capabilities(accountId) });
     return response.list;
   }
 
   async queryNotifications(
     accountId: AccountId,
-    filter: FilterOperatorCondition<TaskNotificationFilter>,
+    filter: JmapFilter<TaskNotificationFilter>,
     options?: {
       sort?: readonly TaskNotificationQuerySort[];
       limit?: number;
     },
-  ): Promise<TaskNotificationQueryResponse> {
-    return this.client.invoke<TaskNotificationQueryRequest, TaskNotificationQueryResponse>(
-      new TaskNotificationQuery({
-        accountId: accountId.value,
-        filter,
-        sort: options?.sort,
-        limit: options?.limit,
-      }),
-      { capabilities: this.capabilities() },
-    );
+  ): Promise<TaskNotification[]> {
+    const batch = this.client.batch({ capabilities: this.capabilities(accountId) });
+    const queryCallId = batch.call(new TaskNotificationQuery({
+      accountId: accountId.value,
+      filter,
+      sort: options?.sort,
+      limit: options?.limit,
+    } satisfies TaskNotificationQueryRequest));
+    const getCallId = batch.call(TaskNotificationGet.byQueryResult(accountId, queryCallId));
+    const response = await batch.send();
+    return response.get<TaskNotificationGetResponse>(getCallId, "TaskNotification/get").list;
   }
 
   async destroyNotification(accountId: AccountId, notificationId: string): Promise<JmapSetResponse> {
@@ -431,13 +426,10 @@ export class JmapTasks {
         accountId: accountId.value,
         destroy: [notificationId],
       }),
-      { capabilities: this.capabilities() },
+      { capabilities: this.capabilities(accountId) },
     );
 
-    const error = getSetError(response, "notDestroyed", notificationId);
-    if (error) {
-      throw new Error(error.description || "Failed to destroy task notification");
-    }
+    assertSetOk(response, "task notification");
 
     return response;
   }

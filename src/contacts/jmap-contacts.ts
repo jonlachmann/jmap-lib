@@ -1,32 +1,30 @@
-import { CORE_CONTACTS_CAPABILITIES, CORE_CONTACTS_PARSE_CAPABILITIES } from "../core/capabilities";
-import { BlobUpload, type BlobUploadResponse } from "../core/blob";
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import type { FilterOperatorCondition } from "../core/query";
-import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
+import { paginate } from "../core/paginate.js";
+import { CORE_CONTACTS_CAPABILITIES } from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import type { JmapFilter } from "../core/query.js";
+import { CREATION_ID, createdOne, assertSetOk, type JmapCreated, type JmapSetResponse } from "../core/set.js";
 import {
   AddressBookChanges,
   AddressBookGet,
   AddressBookSet,
-  ContactCardParse,
   ContactCardChanges,
   ContactCardGet,
   ContactCardQuery,
   ContactCardQueryChanges,
   ContactCardSet,
-} from "./methods";
+} from "./methods.js";
 import type {
   AddressBookChangesRequest,
   AddressBookChangesResponse,
   AddressBookGetRequest,
   AddressBookGetResponse,
-  AddressBook,
   AddressBookCreate,
   AddressBookUpdate,
   AddressBookSetRequest,
-  ContactCardParseRequest,
-  ContactCardParseResponse,
   ContactCard,
+  ContactCardCreate,
+  ContactCardUpdate,
   ContactCardChangesRequest,
   ContactCardChangesResponse,
   ContactCardGetRequest,
@@ -38,17 +36,15 @@ import type {
   ContactCardQueryChangesResponse,
   ContactCardQueryFilter,
   ContactCardQuerySort,
-} from "./types";
+} from "./types.js";
+
+/** The card with the @type and version RFC 9553 2.1 requires, where the caller left them out. */
+function asCard(contact: ContactCardCreate): ContactCardCreate {
+  return { "@type": "Card", version: "1.0", ...contact };
+}
 
 export class JmapContacts {
   constructor(private readonly client: JmapClient) {}
-
-  async listAddressBooks(accountId: AccountId): Promise<AddressBook[]> {
-    const response = await this.client.invoke<AddressBookGetRequest, AddressBookGetResponse>(AddressBookGet.all(accountId), {
-      capabilities: CORE_CONTACTS_CAPABILITIES,
-    });
-    return response.list;
-  }
 
   async getAddressBooks(accountId: AccountId): Promise<AddressBookGetResponse> {
     return this.client.invoke<AddressBookGetRequest, AddressBookGetResponse>(AddressBookGet.all(accountId), {
@@ -77,10 +73,7 @@ export class JmapContacts {
       new AddressBookSet({ accountId: accountId.value, update: { [addressBookId]: updates } }),
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
-    const error = getSetError(response, "notUpdated", addressBookId);
-    if (error) {
-      throw new Error(error.description || "Failed to update address book");
-    }
+    assertSetOk(response, "address book");
     return response;
   }
 
@@ -91,34 +84,8 @@ export class JmapContacts {
       new AddressBookSet({ accountId: accountId.value, destroy: [addressBookId], onDestroyRemoveContents }),
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
-    const error = getSetError(response, "notDestroyed", addressBookId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete address book");
-    }
+    assertSetOk(response, "address book");
     return response;
-  }
-
-  /**
-   * Parse vCards into cards without storing them, in one request.
-   *
-   * @param cards One vCard each, as its octets.
-   * @returns Each card in the order given, or null for one the server couldn't read.
-   */
-  async parseCards(accountId: AccountId, cards: readonly Uint8Array[]): Promise<Array<Partial<ContactCard> | null>> {
-    const creationIds = cards.map((_, index) => `card${index}`);
-    const batch = this.client.batch({ capabilities: CORE_CONTACTS_PARSE_CAPABILITIES });
-    const uploadId = batch.call(new BlobUpload({
-      accountId: accountId.value,
-      create: Object.fromEntries(cards.map((card, index) => [creationIds[index], { data: [{ "data:asBase64": toBase64(card) }], type: "text/vcard" }])),
-    }));
-    const parseId = batch.call(new ContactCardParse({ accountId: accountId.value, blobIds: creationIds.map((id) => `#${id}`) }));
-    const response = await batch.send();
-    const uploaded = response.get<BlobUploadResponse>(uploadId, "Blob/upload");
-    const parsed = response.get<ContactCardParseResponse>(parseId, "ContactCard/parse");
-    return creationIds.map((id) => {
-      const blobId = uploaded.created?.[id]?.id;
-      return (blobId && parsed.parsed?.[blobId]) || null;
-    });
   }
 
   async getChanges(accountId: AccountId, sinceState: string, options?: { maxChanges?: number }): Promise<ContactCardChangesResponse> {
@@ -136,32 +103,17 @@ export class JmapContacts {
   }
 
   async list(accountId: AccountId, addressBookId?: string): Promise<ContactCard[]> {
-    const PAGE_SIZE = 256;
-    const allContacts: ContactCard[] = [];
-    let position = 0;
-
-    for (;;) {
-      const batch = this.client.batch({ capabilities: CORE_CONTACTS_CAPABILITIES });
-      const queryCallId = batch.call(new ContactCardQuery({
+    return paginate<ContactCard>(
+      this.client,
+      CORE_CONTACTS_CAPABILITIES,
+      (position, limit) => new ContactCardQuery({
         accountId: accountId.value,
         filter: addressBookId ? { inAddressBook: addressBookId } : undefined,
-        limit: PAGE_SIZE,
         position,
-        calculateTotal: true,
-      }));
-      const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
-      const response = await batch.send();
-
-      const queryResult = response.get<ContactCardQueryResponse>(queryCallId, "ContactCard/query");
-      const contacts = response.get<ContactCardGetResponse>(getCallId, "ContactCard/get").list;
-      allContacts.push(...contacts);
-
-      const total = queryResult.total ?? contacts.length;
-      position += contacts.length;
-      if (position >= total || contacts.length < PAGE_SIZE) break;
-    }
-
-    return allContacts;
+        limit,
+      }),
+      (queryCallId) => ContactCardGet.byQueryResult(accountId, queryCallId),
+    );
   }
 
   async get(accountId: AccountId, contactId: string): Promise<ContactCard | undefined> {
@@ -180,7 +132,7 @@ export class JmapContacts {
     } satisfies ContactCardQueryRequest));
     const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
     const response = await batch.send();
-    return response.get<import("./types").ContactCardGetResponse>(getCallId, "ContactCard/get").list;
+    return response.get<ContactCardGetResponse>(getCallId, "ContactCard/get").list;
   }
 
   /** The cards a query finds, in its order, from its position, fetched in the same request; the total when asked
@@ -188,7 +140,7 @@ export class JmapContacts {
   async queryCards(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<ContactCardQueryFilter>;
+      filter?: JmapFilter<ContactCardQueryFilter>;
       sort?: readonly ContactCardQuerySort[];
       position?: number;
       limit?: number;
@@ -199,15 +151,15 @@ export class JmapContacts {
     const queryCallId = batch.call(new ContactCardQuery({ accountId: accountId.value, ...options } satisfies ContactCardQueryRequest));
     const getCallId = batch.call(ContactCardGet.byQueryResult(accountId, queryCallId));
     const response = await batch.send();
-    const query = response.get<import("./types").ContactCardQueryResponse>(queryCallId, "ContactCard/query");
-    const cards = response.get<import("./types").ContactCardGetResponse>(getCallId, "ContactCard/get").list;
+    const query = response.get<ContactCardQueryResponse>(queryCallId, "ContactCard/query");
+    const cards = response.get<ContactCardGetResponse>(getCallId, "ContactCard/get").list;
     return { cards, position: query.position, total: query.total };
   }
 
   async queryChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<ContactCardQueryFilter>;
+      filter?: JmapFilter<ContactCardQueryFilter>;
       sort?: readonly ContactCardQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -229,11 +181,11 @@ export class JmapContacts {
     );
   }
 
-  async create(accountId: AccountId, contact: Partial<ContactCard>): Promise<JmapCreated> {
+  async create(accountId: AccountId, contact: ContactCardCreate): Promise<JmapCreated> {
     const response = await this.client.invoke<ContactCardSetRequest, JmapSetResponse>(
       new ContactCardSet({
         accountId: accountId.value,
-        create: { [CREATION_ID]: contact },
+        create: { [CREATION_ID]: asCard(contact) },
       }),
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
@@ -242,14 +194,17 @@ export class JmapContacts {
   }
 
   /** Create several cards in one ContactCard/set; what wasn't created is in the response's notCreated, not thrown. */
-  async createCards(accountId: AccountId, contacts: Record<string, Partial<ContactCard>>): Promise<JmapSetResponse> {
+  async createCards(accountId: AccountId, contacts: Record<string, ContactCardCreate>): Promise<JmapSetResponse> {
     return this.client.invoke<ContactCardSetRequest, JmapSetResponse>(
-      new ContactCardSet({ accountId: accountId.value, create: contacts }),
+      new ContactCardSet({
+        accountId: accountId.value,
+        create: Object.fromEntries(Object.entries(contacts).map(([id, contact]) => [id, asCard(contact)])),
+      }),
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
   }
 
-  async update(accountId: AccountId, contactId: string, updates: Partial<ContactCard>): Promise<JmapSetResponse> {
+  async update(accountId: AccountId, contactId: string, updates: ContactCardUpdate): Promise<JmapSetResponse> {
     const response = await this.client.invoke<ContactCardSetRequest, JmapSetResponse>(
       new ContactCardSet({
         accountId: accountId.value,
@@ -258,10 +213,7 @@ export class JmapContacts {
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", contactId);
-    if (error) {
-      throw new Error(error.description || "Failed to update contact");
-    }
+    assertSetOk(response, "contact");
 
     return response;
   }
@@ -275,18 +227,8 @@ export class JmapContacts {
       { capabilities: CORE_CONTACTS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", contactId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete contact");
-    }
+    assertSetOk(response, "contact");
 
     return response;
   }
-}
-
-/** Encode the octets as base64, a chunk at a time so a large card doesn't overflow the argument list. */
-function toBase64(octets: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < octets.length; i += 0x8000) binary += String.fromCharCode(...octets.subarray(i, i + 0x8000));
-  return btoa(binary);
 }

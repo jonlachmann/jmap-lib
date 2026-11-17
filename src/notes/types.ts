@@ -1,8 +1,11 @@
-import type { JmapGetArgs } from "../core/get";
-import type { JmapPatchObject } from "../core/patch";
-import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
-import type { JmapMethodError, JmapSetArgs } from "../core/set";
-import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
+import type { JmapCopyArgs, JmapCopyResponse } from "../core/copy.js";
+import type { JmapGetResponse } from "../core/get.js";
+import type { JmapQueryResponse } from "../core/query.js";
+import type { JmapGetArgs } from "../core/get.js";
+import type { JmapPatchObject } from "../core/patch.js";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query.js";
+import type { JmapSetArgs } from "../core/set.js";
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes.js";
 
 // Types follow rfcs/draft-jmap-notes-00.txt.
 
@@ -64,12 +67,7 @@ export type NoteBookUpdate = JmapPatchObject<NoteBookMutable>;
 
 export interface NoteBookGetRequest extends JmapGetArgs<NoteBookProperty> {}
 
-export interface NoteBookGetResponse {
-  accountId: string;
-  state: string;
-  list: NoteBook[];
-  notFound?: string[];
-}
+export type NoteBookGetResponse = JmapGetResponse<NoteBook>;
 
 export interface NoteBookChangesRequest extends JmapChangesArgs {}
 
@@ -94,7 +92,7 @@ export interface Note {
   /** CSS3 color name (no hex). Per-user. */
   color?: string | null;
   /** Per-user; "$flagged" marks the note as flagged. */
-  keywords?: Record<string, boolean>;
+  keywords?: Record<string, true>;
   created?: string;
   updated?: string;
 }
@@ -118,7 +116,7 @@ export type NoteMutable = {
   description?: string;
   descriptionContentType?: NoteContentType;
   color?: string | null;
-  keywords?: Record<string, boolean>;
+  keywords?: Record<string, true>;
 };
 
 export interface NoteCreate extends NoteMutable {
@@ -128,20 +126,9 @@ export interface NoteCreate extends NoteMutable {
 
 export type NoteUpdate = JmapPatchObject<NoteMutable>;
 
-export interface NoteGetRequest extends JmapGetArgs<NoteProperty> {
-  "#ids"?: {
-    resultOf: string;
-    name: "Note/query";
-    path: "/ids";
-  };
-}
+export interface NoteGetRequest extends JmapGetArgs<NoteProperty> {}
 
-export interface NoteGetResponse {
-  accountId: string;
-  state: string;
-  list: Note[];
-  notFound?: string[];
-}
+export type NoteGetResponse = JmapGetResponse<Note>;
 
 export interface NoteChangesRequest extends JmapChangesArgs {}
 
@@ -149,24 +136,9 @@ export interface NoteChangesResponse extends JmapChangesResponse {}
 
 export interface NoteSetRequest extends JmapSetArgs<NoteCreate, NoteUpdate> {}
 
-export interface NoteCopyRequest {
-  fromAccountId: string;
-  ifFromInState?: string | null;
-  accountId: string;
-  ifInState?: string | null;
-  create: Record<string, NoteCreate & { id: string }>;
-  onSuccessDestroyOriginal?: boolean;
-  destroyFromIfInState?: string | null;
-}
+export interface NoteCopyRequest extends JmapCopyArgs<NoteCreate> {}
 
-export interface NoteCopyResponse {
-  fromAccountId: string;
-  accountId: string;
-  oldState?: string;
-  newState?: string;
-  created?: Record<string, Note>;
-  notCreated?: Record<string, JmapMethodError>;
-}
+export type NoteCopyResponse = JmapCopyResponse<Note>;
 
 // --- Note query ---
 
@@ -182,21 +154,13 @@ export interface NoteFilter {
 
 export type NoteQuerySortProperty = "title" | "updated" | "created" | "hasKeyword";
 
-export interface NoteQuerySort extends JmapComparator<NoteQuerySortProperty> {
-  /** Required when property is "hasKeyword". */
-  keyword?: string;
-}
+export type NoteQuerySort =
+  | JmapComparator<Exclude<NoteQuerySortProperty, "hasKeyword">>
+  | (JmapComparator<"hasKeyword"> & { keyword: string });
 
 export interface NoteQueryRequest extends JmapQueryArgs<NoteFilter, NoteQuerySort> {}
 
-export interface NoteQueryResponse {
-  accountId: string;
-  queryState?: string;
-  canCalculateChanges?: boolean;
-  ids: string[];
-  position: number;
-  total?: number;
-}
+export type NoteQueryResponse = JmapQueryResponse;
 
 export interface NoteQueryChangesRequest extends JmapQueryChangesArgs<NoteFilter, NoteQuerySort> {}
 

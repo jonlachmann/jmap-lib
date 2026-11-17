@@ -30,7 +30,7 @@ test("EmailGet.byQueryResult encapsulates #ids references", () => {
 test("JmapMail.getAllMailboxes preserves successes and failures per account", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -71,7 +71,7 @@ test("JmapMail.listPage batches Email/query and Email/get and computes hasMore",
   const requests: Array<{ body: unknown }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       requests.push({ body: JSON.parse(String(init?.body)) });
@@ -123,7 +123,7 @@ test("JmapMail.listPage batches Email/query and Email/get and computes hasMore",
 test("JmapMail.listPage falls back to limit-based hasMore when total is absent", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async () =>
       new Response(

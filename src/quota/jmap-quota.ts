@@ -1,7 +1,7 @@
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import { QuotaGet } from "./methods";
-import type { QuotaGetRequest, QuotaGetResponse } from "./types";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import { QuotaGet } from "./methods.js";
+import type { QuotaGetRequest, QuotaGetResponse } from "./types.js";
 
 export class JmapQuota {
   constructor(private readonly client: JmapClient) {}

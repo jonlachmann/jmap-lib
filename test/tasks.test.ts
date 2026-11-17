@@ -112,7 +112,7 @@ test("TaskCopy preserves copy arguments", () => {
   const method = new TaskCopy({
     fromAccountId: "from-acc",
     accountId: "to-acc",
-    create: { copy1: { taskListId: "tl-1", title: "Copied" } },
+    create: { copy1: { id: "t-1", taskListId: "tl-1", title: "Copied" } },
     onSuccessDestroyOriginal: true,
   });
   assert.equal(method.methodName, "Task/copy");
@@ -121,7 +121,7 @@ test("TaskCopy preserves copy arguments", () => {
 });
 
 test("TaskQuery has correct method name", () => {
-  const method = new TaskQuery({ accountId: "acc", filter: { inTaskLists: ["tl-1"] } });
+  const method = new TaskQuery({ accountId: "acc", filter: { inTaskList: "tl-1" } });
   assert.equal(method.methodName, "Task/query");
 });
 
@@ -161,7 +161,7 @@ test("TaskNotificationQueryChanges has correct method name", () => {
 function createMockClient(methodResponses: unknown[][]) {
   return new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", JMAP_TASKS_CAPABILITY],
     fetch: async () => {
       return new Response(
@@ -172,11 +172,11 @@ function createMockClient(methodResponses: unknown[][]) {
   });
 }
 
-test("JmapTasks.listTaskLists uses tasks capabilities", async () => {
+test("JmapTasks.getTaskLists uses tasks capabilities", async () => {
   let using: string[] | undefined;
   const tasks = new JmapTasks(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       using = JSON.parse(String(init?.body)).using;
@@ -189,7 +189,7 @@ test("JmapTasks.listTaskLists uses tasks capabilities", async () => {
     },
   }));
 
-  const result = await tasks.listTaskLists(AccountId.of("acc"));
+  const result = (await tasks.getTaskLists(AccountId.of("acc"))).list;
 
   assert.equal(result[0].id, "tl1");
   assert.equal(result[0].name, "My Tasks");
@@ -239,7 +239,7 @@ test("JmapTasks.destroyTaskList with onDestroyRemoveTasks", async () => {
   let sentArgs: unknown;
   const tasks = new JmapTasks(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -271,7 +271,7 @@ test("JmapTasks.queryTasks uses filter and sort", async () => {
   let sentArgs: Record<string, unknown> | undefined;
   const tasks = new JmapTasks(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -386,7 +386,7 @@ test("JmapTasks.copyTask returns created id", async () => {
   const { id } = await tasks.copyTask(
     AccountId.of("to"),
     AccountId.of("from"),
-    { taskListId: "tl-1", title: "Copied" },
+    { id: "t-1", taskListId: "tl-1", title: "Copied" },
   );
   assert.equal(id, "t-copied");
 });
@@ -397,7 +397,7 @@ test("JmapTasks.copyTask throws on error", async () => {
   ]));
 
   await assert.rejects(
-    () => tasks.copyTask(AccountId.of("to"), AccountId.of("from"), { taskListId: "tl-1" }),
+    () => tasks.copyTask(AccountId.of("to"), AccountId.of("from"), { id: "t-1", taskListId: "tl-1" }),
     /quota/,
   );
 });
@@ -406,7 +406,7 @@ test("JmapTasks.getTaskListChanges delegates correctly", async () => {
   let sentArgs: unknown;
   const tasks = new JmapTasks(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
@@ -452,7 +452,7 @@ test("JmapTasks.queryTaskChanges delegates correctly", async () => {
 
   const result = await tasks.queryTaskChanges(AccountId.of("acc"), {
     sinceQueryState: "qs1",
-    filter: { inTaskLists: ["tl-1"] },
+    filter: { inTaskList: "tl-1" },
   });
   assert.equal(result.newQueryState, "qs2");
   assert.deepEqual(result.removed, ["t-old"]);
@@ -471,20 +471,24 @@ test("JmapTasks.listNotifications returns notifications", async () => {
   assert.equal(result[0].type, "created");
 });
 
-test("JmapTasks.queryNotifications passes filter", async () => {
+test("JmapTasks.queryNotifications passes filter and returns the notifications", async () => {
   let sentArgs: unknown;
   const tasks = new JmapTasks(new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body));
       sentArgs = body.methodCalls[0][1];
       return new Response(
         JSON.stringify({
-          methodResponses: [["TaskNotification/query", {
-            accountId: "acc", queryState: "qs1", ids: ["n1"], position: 0, total: 1,
-          }, "0"]],
+          methodResponses: [
+            ["TaskNotification/query", { accountId: "acc", queryState: "qs1", ids: ["n1"], position: 0, total: 1 }, "0"],
+            ["TaskNotification/get", {
+              accountId: "acc",
+              list: [{ id: "n1", created: "2024-01-01T00:00:00Z", type: "updated", taskId: "t-1" }],
+            }, "1"],
+          ],
         }),
         { status: 200 },
       );
@@ -492,7 +496,7 @@ test("JmapTasks.queryNotifications passes filter", async () => {
   }));
 
   const result = await tasks.queryNotifications(AccountId.of("acc"), { type: "updated" });
-  assert.deepEqual(result.ids, ["n1"]);
+  assert.deepEqual(result.map((notification) => notification.id), ["n1"]);
   assert.equal((sentArgs as { filter: { type: string } }).filter.type, "updated");
 });
 

@@ -1,7 +1,20 @@
-import { AccountId, CallId } from "../core/ids";
-import type { JmapMethod } from "../core/method";
-import { MailboxId } from "../core/ids";
+import { resultOf } from "../core/reference.js";
+import { AccountId, CallId } from "../core/ids.js";
+import type { JmapMethod } from "../core/method.js";
+import type { JmapSetResponse } from "../core/set.js";
 import type {
+  EmailCopyRequest,
+  EmailCopyResponse,
+  EmailImportRequest,
+  EmailImportResponse,
+  EmailSubmissionChangesRequest,
+  EmailSubmissionChangesResponse,
+  EmailSubmissionGetRequest,
+  EmailSubmissionGetResponse,
+  EmailSubmissionQueryChangesRequest,
+  EmailSubmissionQueryChangesResponse,
+  EmailSubmissionQueryRequest,
+  EmailSubmissionQueryResponse,
   EmailChangesRequest,
   EmailChangesResponse,
   EmailGetRequest,
@@ -11,7 +24,6 @@ import type {
   IdentityChangesRequest,
   IdentityChangesResponse,
   EmailProperty,
-  EmailQueryFilter,
   EmailQueryChangesRequest,
   EmailQueryChangesResponse,
   EmailQueryRequest,
@@ -33,7 +45,7 @@ import type {
   ThreadChangesResponse,
   ThreadGetRequest,
   ThreadGetResponse,
-} from "./types";
+} from "./types.js";
 
 export class MailboxGet implements JmapMethod<MailboxGetRequest, MailboxGetResponse> {
   readonly methodName = "Mailbox/get";
@@ -92,7 +104,7 @@ export class MailboxQueryChanges
   }
 }
 
-export class MailboxSet implements JmapMethod<MailboxSetRequest, import("../core/set").JmapSetResponse> {
+export class MailboxSet implements JmapMethod<MailboxSetRequest, JmapSetResponse> {
   readonly methodName = "Mailbox/set";
   readonly arguments: MailboxSetRequest;
 
@@ -107,26 +119,6 @@ export class EmailQuery implements JmapMethod<EmailQueryRequest, EmailQueryRespo
 
   constructor(args: EmailQueryRequest) {
     this.arguments = args;
-  }
-
-  static page(options: {
-    accountId: AccountId;
-    mailboxId?: MailboxId;
-    limit?: number;
-    position?: number;
-  }): EmailQuery {
-    const filter: EmailQueryFilter | undefined = options.mailboxId
-      ? { inMailbox: options.mailboxId.value }
-      : undefined;
-
-    return new EmailQuery({
-      accountId: options.accountId.value,
-      filter,
-      sort: [{ property: "receivedAt", isAscending: false }],
-      limit: options.limit,
-      position: options.position,
-      calculateTotal: true,
-    });
   }
 }
 
@@ -173,11 +165,7 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
   ): EmailGet {
     return new EmailGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: queryCallId.value,
-        name: "Email/query",
-        path: "/ids",
-      },
+      "#ids": resultOf(queryCallId, "Email/query", "/ids"),
       properties,
     });
   }
@@ -194,18 +182,14 @@ export class EmailGet implements JmapMethod<EmailGetRequest, EmailGetResponse> {
   ): EmailGet {
     return new EmailGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: threadCallId.value,
-        name: "Thread/get",
-        path: "/list/*/emailIds",
-      },
+      "#ids": resultOf(threadCallId, "Thread/get", "/list/*/emailIds"),
       properties,
       ...options,
     });
   }
 }
 
-export class EmailSet implements JmapMethod<EmailSetRequest, import("../core/set").JmapSetResponse> {
+export class EmailSet implements JmapMethod<EmailSetRequest, JmapSetResponse> {
   readonly methodName = "Email/set";
   readonly arguments: EmailSetRequest;
 
@@ -215,12 +199,83 @@ export class EmailSet implements JmapMethod<EmailSetRequest, import("../core/set
 }
 
 export class EmailSubmissionSet
-  implements JmapMethod<EmailSubmissionSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<EmailSubmissionSetRequest, JmapSetResponse>
 {
   readonly methodName = "EmailSubmission/set";
   readonly arguments: EmailSubmissionSetRequest;
 
   constructor(args: EmailSubmissionSetRequest) {
+    this.arguments = args;
+  }
+}
+
+/** Copies emails from another account (RFC 8621 4.7). */
+export class EmailCopy implements JmapMethod<EmailCopyRequest, EmailCopyResponse> {
+  readonly methodName = "Email/copy";
+  readonly arguments: EmailCopyRequest;
+
+  constructor(args: EmailCopyRequest) {
+    this.arguments = args;
+  }
+}
+
+/** Makes emails of uploaded messages (RFC 8621 4.8). */
+export class EmailImport implements JmapMethod<EmailImportRequest, EmailImportResponse> {
+  readonly methodName = "Email/import";
+  readonly arguments: EmailImportRequest;
+
+  constructor(args: EmailImportRequest) {
+    this.arguments = args;
+  }
+}
+
+export class EmailSubmissionGet implements JmapMethod<EmailSubmissionGetRequest, EmailSubmissionGetResponse> {
+  readonly methodName = "EmailSubmission/get";
+  readonly arguments: EmailSubmissionGetRequest;
+
+  constructor(args: EmailSubmissionGetRequest) {
+    this.arguments = args;
+  }
+
+  static byIds(accountId: AccountId, ids: readonly string[]): EmailSubmissionGet {
+    return new EmailSubmissionGet({ accountId: accountId.value, ids });
+  }
+
+  static byQueryResult(accountId: AccountId, queryCallId: CallId): EmailSubmissionGet {
+    return new EmailSubmissionGet({
+      accountId: accountId.value,
+      "#ids": resultOf(queryCallId, "EmailSubmission/query", "/ids"),
+    });
+  }
+}
+
+export class EmailSubmissionChanges
+  implements JmapMethod<EmailSubmissionChangesRequest, EmailSubmissionChangesResponse>
+{
+  readonly methodName = "EmailSubmission/changes";
+  readonly arguments: EmailSubmissionChangesRequest;
+
+  constructor(args: EmailSubmissionChangesRequest) {
+    this.arguments = args;
+  }
+}
+
+export class EmailSubmissionQuery implements JmapMethod<EmailSubmissionQueryRequest, EmailSubmissionQueryResponse> {
+  readonly methodName = "EmailSubmission/query";
+  readonly arguments: EmailSubmissionQueryRequest;
+
+  constructor(args: EmailSubmissionQueryRequest) {
+    this.arguments = args;
+  }
+}
+
+export class EmailSubmissionQueryChanges
+  implements JmapMethod<EmailSubmissionQueryChangesRequest, EmailSubmissionQueryChangesResponse>
+{
+  readonly methodName = "EmailSubmission/queryChanges";
+  readonly arguments: EmailSubmissionQueryChangesRequest;
+
+  constructor(args: EmailSubmissionQueryChangesRequest) {
     this.arguments = args;
   }
 }
@@ -266,7 +321,7 @@ export class IdentityGet implements JmapMethod<IdentityGetRequest, IdentityGetRe
 }
 
 export class IdentitySet
-  implements JmapMethod<IdentitySetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<IdentitySetRequest, JmapSetResponse>
 {
   readonly methodName = "Identity/set";
   readonly arguments: IdentitySetRequest;

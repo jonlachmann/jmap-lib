@@ -1,4 +1,5 @@
-import type { JmapGetArgs } from "../core/get";
+import type { JmapGetResponse } from "../core/get.js";
+import type { JmapGetArgs } from "../core/get.js";
 
 export interface JmapQuota {
   resourceType?: string;
@@ -12,8 +13,4 @@ export type QuotaProperty = "resourceType" | "scope" | "used" | "hardLimit" | "l
 
 export interface QuotaGetRequest extends JmapGetArgs<QuotaProperty> {}
 
-export interface QuotaGetResponse {
-  accountId: string;
-  state: string;
-  list: JmapQuota[];
-}
+export type QuotaGetResponse = JmapGetResponse<JmapQuota>;

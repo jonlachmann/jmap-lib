@@ -1,8 +1,9 @@
-import { CORE_CALENDARS_CAPABILITIES, CORE_CALENDARS_PARSE_CAPABILITIES } from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import type { FilterOperatorCondition } from "../core/query";
-import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
+import { paginate } from "../core/paginate.js";
+import { CORE_CALENDARS_CAPABILITIES, CORE_CALENDARS_PARSE_CAPABILITIES } from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import { inAny, type JmapFilter } from "../core/query.js";
+import { CREATION_ID, createdOne, assertSetOk, type JmapCreated, type JmapSetResponse } from "../core/set.js";
 import {
   CalendarChanges,
   CalendarEventChanges,
@@ -12,11 +13,15 @@ import {
   CalendarEventQueryChanges,
   CalendarEventSet,
   CalendarGet,
+  ParticipantIdentityChanges,
   ParticipantIdentityGet,
+  ParticipantIdentitySet,
   CalendarSet,
-} from "./methods";
+} from "./methods.js";
 import type {
-  Calendar,
+  CalendarCreate,
+  CalendarEventCreate,
+  CalendarEventUpdate,
   CalendarChangesRequest,
   CalendarChangesResponse,
   CalendarEvent,
@@ -31,17 +36,21 @@ import type {
   CalendarEventQueryChangesRequest,
   CalendarEventQueryChangesResponse,
   CalendarEventQueryRequest,
-  CalendarEventQueryResponse,
   CalendarEventQuerySort,
   CalendarEventSetRequest,
   CalendarGetRequest,
   CalendarGetResponse,
   ParticipantIdentity,
+  ParticipantIdentityChangesRequest,
+  ParticipantIdentityChangesResponse,
+  ParticipantIdentityCreate,
   ParticipantIdentityGetRequest,
   ParticipantIdentityGetResponse,
+  ParticipantIdentitySetRequest,
+  ParticipantIdentityUpdate,
   CalendarSetRequest,
   CalendarUpdate,
-} from "./types";
+} from "./types.js";
 
 export const DEFAULT_CALENDAR_EVENT_PROPERTIES = [
   "id",
@@ -66,8 +75,7 @@ export const DEFAULT_CALENDAR_EVENT_PROPERTIES = [
   "participants",
   "organizerCalendarAddress",
   "alerts",
-  "recurrenceRules",
-  "excludedRecurrenceRules",
+  "recurrenceRule",
   "recurrenceOverrides",
   "recurrenceId",
   "isOrigin",
@@ -75,13 +83,6 @@ export const DEFAULT_CALENDAR_EVENT_PROPERTIES = [
 
 export class JmapCalendars {
   constructor(private readonly client: JmapClient) {}
-
-  async list(accountId: AccountId): Promise<Calendar[]> {
-    const response = await this.client.invoke<CalendarGetRequest, CalendarGetResponse>(CalendarGet.all(accountId), {
-      capabilities: CORE_CALENDARS_CAPABILITIES,
-    });
-    return response.list;
-  }
 
   /** The addresses the user acts as in the account (draft-ietf-jmap-calendars 3): the owner's for one who acts for them. */
   async listParticipantIdentities(accountId: AccountId): Promise<ParticipantIdentity[]> {
@@ -92,8 +93,60 @@ export class JmapCalendars {
     return response.list;
   }
 
+  async getParticipantIdentityChanges(
+    accountId: AccountId,
+    sinceState: string,
+    options?: { maxChanges?: number },
+  ): Promise<ParticipantIdentityChangesResponse> {
+    return this.client.invoke<ParticipantIdentityChangesRequest, ParticipantIdentityChangesResponse>(
+      new ParticipantIdentityChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
+  }
+
+  /** @param options.isDefault Make it the default once made, if the server allows. */
+  async createParticipantIdentity(
+    accountId: AccountId,
+    identity: ParticipantIdentityCreate,
+    options?: { isDefault?: boolean },
+  ): Promise<JmapCreated> {
+    const response = await this.setParticipantIdentities({
+      accountId: accountId.value,
+      create: { [CREATION_ID]: identity },
+      onSuccessSetIsDefault: options?.isDefault ? `#${CREATION_ID}` : undefined,
+    });
+
+    return createdOne(response, "participant identity");
+  }
+
+  async updateParticipantIdentity(
+    accountId: AccountId,
+    identityId: string,
+    updates: ParticipantIdentityUpdate,
+  ): Promise<JmapSetResponse> {
+    return this.setParticipantIdentities({ accountId: accountId.value, update: { [identityId]: updates } });
+  }
+
+  async destroyParticipantIdentity(accountId: AccountId, identityId: string): Promise<JmapSetResponse> {
+    return this.setParticipantIdentities({ accountId: accountId.value, destroy: [identityId] });
+  }
+
+  /** Make the identity the default; a server not allowing it keeps the default it has, with no error. */
+  async setDefaultParticipantIdentity(accountId: AccountId, identityId: string): Promise<JmapSetResponse> {
+    return this.setParticipantIdentities({ accountId: accountId.value, onSuccessSetIsDefault: identityId });
+  }
+
+  private async setParticipantIdentities(args: ParticipantIdentitySetRequest): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<ParticipantIdentitySetRequest, JmapSetResponse>(
+      new ParticipantIdentitySet(args),
+      { capabilities: CORE_CALENDARS_CAPABILITIES },
+    );
+    assertSetOk(response, "participant identity");
+    return response;
+  }
+
   /** The calendars with the state they are at, to sync changes from. */
-  async getAll(accountId: AccountId): Promise<CalendarGetResponse> {
+  async getCalendars(accountId: AccountId): Promise<CalendarGetResponse> {
     return this.client.invoke<CalendarGetRequest, CalendarGetResponse>(CalendarGet.all(accountId), {
       capabilities: CORE_CALENDARS_CAPABILITIES,
     });
@@ -124,7 +177,7 @@ export class JmapCalendars {
     });
   }
 
-  async create(accountId: AccountId, calendar: Partial<Calendar>): Promise<JmapCreated> {
+  async create(accountId: AccountId, calendar: CalendarCreate): Promise<JmapCreated> {
     const response = await this.client.invoke<CalendarSetRequest, JmapSetResponse>(
       new CalendarSet({
         accountId: accountId.value,
@@ -145,27 +198,29 @@ export class JmapCalendars {
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", calendarId);
-    if (error) {
-      throw new Error(error.description || "Failed to update calendar");
-    }
+    assertSetOk(response, "calendar");
 
     return response;
   }
 
-  async destroy(accountId: AccountId, calendarId: string): Promise<JmapSetResponse> {
+  /**
+   * Destroy a calendar.
+   *
+   * @param accountId The account the calendar is in.
+   * @param calendarId The calendar to destroy.
+   * @param removeEvents Destroy its events with it; without, a calendar holding any is refused.
+   */
+  async destroy(accountId: AccountId, calendarId: string, removeEvents = false): Promise<JmapSetResponse> {
     const response = await this.client.invoke<CalendarSetRequest, JmapSetResponse>(
       new CalendarSet({
         accountId: accountId.value,
         destroy: [calendarId],
+        onDestroyRemoveEvents: removeEvents,
       }),
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", calendarId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete calendar");
-    }
+    assertSetOk(response, "calendar");
 
     return response;
   }
@@ -175,32 +230,19 @@ export class JmapCalendars {
     calendarIds?: readonly string[],
     properties: readonly CalendarEventProperty[] = DEFAULT_CALENDAR_EVENT_PROPERTIES,
   ): Promise<CalendarEvent[]> {
-    const PAGE_SIZE = 256;
-    const allEvents: CalendarEvent[] = [];
-    let position = 0;
-
-    for (;;) {
-      const batch = this.client.batch({ capabilities: CORE_CALENDARS_CAPABILITIES });
-      const queryCallId = batch.call(new CalendarEventQuery({
+    // inAny gives no filter for no ids, which would list every one
+    if (calendarIds?.length === 0) return [];
+    return paginate<CalendarEvent>(
+      this.client,
+      CORE_CALENDARS_CAPABILITIES,
+      (position, limit) => new CalendarEventQuery({
         accountId: accountId.value,
-        filter: calendarIds?.length ? { inCalendars: [...calendarIds] } : undefined,
-        limit: PAGE_SIZE,
+        filter: inAny("inCalendar", calendarIds),
         position,
-        calculateTotal: true,
-      }));
-      const getCallId = batch.call(CalendarEventGet.byQueryResult(accountId, queryCallId, properties));
-      const response = await batch.send();
-
-      const queryResult = response.get<CalendarEventQueryResponse>(queryCallId, "CalendarEvent/query");
-      const events = response.get<CalendarEventGetResponse>(getCallId, "CalendarEvent/get").list;
-      allEvents.push(...events);
-
-      const total = queryResult.total ?? events.length;
-      position += events.length;
-      if (position >= total || events.length < PAGE_SIZE) break;
-    }
-
-    return allEvents;
+        limit,
+      }),
+      (queryCallId) => CalendarEventGet.byQueryResult(accountId, queryCallId, properties),
+    );
   }
 
   /** The instances in [after, before) of every event, recurring ones expanded, by start. */
@@ -210,41 +252,29 @@ export class JmapCalendars {
     before: string,
     properties: readonly CalendarEventProperty[] = DEFAULT_CALENDAR_EVENT_PROPERTIES,
   ): Promise<CalendarEvent[]> {
-    const PAGE_SIZE = 256;
-    const instances: CalendarEvent[] = [];
-    let position = 0;
-
-    for (;;) {
-      const batch = this.client.batch({ capabilities: CORE_CALENDARS_CAPABILITIES });
-      const queryCallId = batch.call(new CalendarEventQuery({
+    return paginate<CalendarEvent>(
+      this.client,
+      CORE_CALENDARS_CAPABILITIES,
+      (position, limit) => new CalendarEventQuery({
         accountId: accountId.value,
         filter: { after, before },
         expandRecurrences: true,
-        limit: PAGE_SIZE,
+        sort: [{ property: "start" }],
         position,
-        calculateTotal: true,
-      }));
-      const getCallId = batch.call(CalendarEventGet.byQueryResult(accountId, queryCallId, [...properties, "baseEventId"]));
-      const response = await batch.send();
-
-      const queryResult = response.get<CalendarEventQueryResponse>(queryCallId, "CalendarEvent/query");
-      const events = response.get<CalendarEventGetResponse>(getCallId, "CalendarEvent/get").list;
-      instances.push(...events);
-
-      const total = queryResult.total ?? events.length;
-      position += events.length;
-      if (position >= total || events.length < PAGE_SIZE) break;
-    }
-
-    return instances;
+        limit,
+      }),
+      (queryCallId) => CalendarEventGet.byQueryResult(accountId, queryCallId, [...properties, "baseEventId"]),
+    );
   }
 
   async queryEvents(
     accountId: AccountId,
-    filter: FilterOperatorCondition<CalendarEventFilter>,
+    filter: JmapFilter<CalendarEventFilter>,
     options?: {
       sort?: readonly { property: string; isAscending: boolean }[];
       limit?: number;
+      /** The zone the filter's after and before are read in. */
+      timeZone?: string;
       properties?: readonly CalendarEventProperty[];
     },
   ): Promise<CalendarEvent[]> {
@@ -254,6 +284,7 @@ export class JmapCalendars {
       filter,
       sort: options?.sort,
       limit: options?.limit ?? 100,
+      timeZone: options?.timeZone,
     } satisfies CalendarEventQueryRequest));
     const getCallId = batch.call(
       CalendarEventGet.byQueryResult(accountId, queryCallId, options?.properties ?? DEFAULT_CALENDAR_EVENT_PROPERTIES),
@@ -265,7 +296,7 @@ export class JmapCalendars {
   async queryEventChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<CalendarEventFilter>;
+      filter?: JmapFilter<CalendarEventFilter>;
       sort?: readonly CalendarEventQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -300,7 +331,7 @@ export class JmapCalendars {
 
   async createEvent(
     accountId: AccountId,
-    event: Partial<CalendarEvent>,
+    event: CalendarEventCreate,
     sendSchedulingMessages?: boolean,
   ): Promise<JmapCreated> {
     const response = await this.client.invoke<CalendarEventSetRequest, JmapSetResponse>(
@@ -318,7 +349,7 @@ export class JmapCalendars {
   async updateEvent(
     accountId: AccountId,
     eventId: string,
-    updates: Partial<CalendarEvent>,
+    updates: CalendarEventUpdate,
     sendSchedulingMessages?: boolean,
   ): Promise<JmapSetResponse> {
     const response = await this.client.invoke<CalendarEventSetRequest, JmapSetResponse>(
@@ -330,10 +361,7 @@ export class JmapCalendars {
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", eventId);
-    if (error) {
-      throw new Error(error.description || "Failed to update calendar event");
-    }
+    assertSetOk(response, "calendar event");
 
     return response;
   }
@@ -348,10 +376,7 @@ export class JmapCalendars {
       { capabilities: CORE_CALENDARS_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", eventId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete calendar event");
-    }
+    assertSetOk(response, "calendar event");
 
     return response;
   }

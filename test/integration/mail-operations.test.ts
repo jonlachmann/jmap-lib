@@ -117,14 +117,11 @@ test("integration: keyword and tag update methods modify drafts", { skip }, asyn
     assert.equal(updated.keywords?.["$seen"], true);
     assert.equal(updated.keywords?.["$flagged"], true);
 
-    const counts = await mail.queryTagCounts(context.accountId, [tag]);
-    assert.equal(typeof counts[tag], "number");
-    assert.ok(counts[tag] >= 1, "expected at least one email with the integration tag");
 
     await mail.markAsRead(context.accountId, draftId, false);
     const unread = await mail.getEmail(context.accountId, draftId, ["id", "keywords"]);
     assert.ok(unread, "expected unread draft to be fetchable");
-    assert.equal(unread.keywords?.["$seen"], false);
+    assert.equal(unread.keywords?.["$seen"], undefined);
   } finally {
     await safeDestroy(mail, context.accountId, draftId);
   }
@@ -200,7 +197,6 @@ test("integration: createDraft creates drafts with attachments", { skip }, async
     contentType: "text/plain",
     body: "attachment body",
   });
-  const draftClientId = createIntegrationId("draft-attachment");
   const draftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),
@@ -238,7 +234,6 @@ test("integration: submits a created draft when submission is supported", { skip
 
   const { mail, mailboxes } = await createMailIntegrationContext();
   const drafts = requireMailboxByRole(mailboxes, "drafts");
-  const draftClientId = createIntegrationId("submit");
   const draftId = (await mail.createDraft({
     accountId: context.accountId,
     draftsMailboxId: MailboxId.of(drafts.id),

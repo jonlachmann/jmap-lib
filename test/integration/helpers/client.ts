@@ -19,8 +19,9 @@ export async function createIntegrationClientContext(
   const accountId = resolveIntegrationAccountId(user, discovered.session);
   const client = new JmapClient({
     endpoint: discovered.apiUrl,
-    authorizationHeader: discovered.authorizationHeader,
+    authorization: discovered.authorizationHeader,
     capabilities: discovered.capabilities,
+    session: discovered.session,
   });
 
   return {

@@ -1,6 +1,7 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId, CallId } from "../core/ids";
-import type { JmapSetResponse } from "../core/set";
+import { resultOf } from "../core/reference.js";
+import type { JmapMethod } from "../core/method.js";
+import { AccountId, CallId } from "../core/ids.js";
+import type { JmapSetResponse } from "../core/set.js";
 import type {
   TaskListGetRequest,
   TaskListGetResponse,
@@ -28,7 +29,7 @@ import type {
   TaskNotificationQueryResponse,
   TaskNotificationQueryChangesRequest,
   TaskNotificationQueryChangesResponse,
-} from "./types";
+} from "./types.js";
 
 // --- TaskList methods ---
 
@@ -88,11 +89,7 @@ export class TaskGet implements JmapMethod<TaskGetRequest, TaskGetResponse> {
   ): TaskGet {
     return new TaskGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: queryCallId.value,
-        name: "Task/query",
-        path: "/ids",
-      },
+      "#ids": resultOf(queryCallId, "Task/query", "/ids"),
       properties,
     });
   }
@@ -159,6 +156,13 @@ export class TaskNotificationGet
 
   static all(accountId: AccountId): TaskNotificationGet {
     return new TaskNotificationGet({ accountId: accountId.value });
+  }
+
+  static byQueryResult(accountId: AccountId, queryCallId: CallId): TaskNotificationGet {
+    return new TaskNotificationGet({
+      accountId: accountId.value,
+      "#ids": resultOf(queryCallId, "TaskNotification/query", "/ids"),
+    });
   }
 }
 

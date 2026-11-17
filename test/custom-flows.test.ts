@@ -17,7 +17,7 @@ test("custom flow: consumers can compose a typed low-level mail batch", async ()
   const requests: Array<{ body: { using: string[]; methodCalls: unknown[] } }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body)) as { using: string[]; methodCalls: unknown[] };
@@ -93,7 +93,7 @@ test("custom flow: consumers can compose a typed low-level mail batch", async ()
 test("custom flow: consumers can issue cross-domain batches and inspect raw responses", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:contacts"],
     fetch: async () =>
       new Response(
@@ -122,8 +122,8 @@ test("custom flow: consumers can issue cross-domain batches and inspect raw resp
 
   const response = await batch.send();
 
-  assert.equal(response.first<{ list: Array<{ id: string }> }>("Mailbox/get").list[0].id, "inbox");
-  assert.equal(response.first<{ ids: string[] }>("ContactCard/query").ids[0], "c1");
+  assert.equal(response.get<{ list: Array<{ id: string }> }>(CallId.of("m1"), "Mailbox/get").list[0].id, "inbox");
+  assert.equal(response.get<{ ids: string[] }>(contactQueryCallId, "ContactCard/query").ids[0], "c1");
   assert.equal(response.allRaw().length, 3);
 });
 
@@ -150,7 +150,7 @@ test("custom flow: consumers can invoke an ad hoc typed method without adding a 
 
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       const body = JSON.parse(String(init?.body)) as { methodCalls: Array<[string, BlobCopyRequest, string]> };

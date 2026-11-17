@@ -1,11 +1,17 @@
-import { AccountId, MailboxId } from "../core/ids";
-import { JmapClient } from "../core/client";
-import type { JmapChangesResponse } from "../core/changes";
-import type { FilterOperatorCondition } from "../core/query";
-import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
+import { AccountId } from "../core/ids.js";
+import { MailboxId } from "./ids.js";
+import { JmapClient } from "../core/client.js";
+import { CORE_MAIL_SUBMISSION_CAPABILITIES } from "../core/capabilities.js";
+import type { JmapFilter } from "../core/query.js";
+import { CREATION_ID, createdOne, assertSetOk, setInChunks, type JmapCreated, type JmapSetResponse } from "../core/set.js";
 import {
   EmailChanges,
+  EmailCopy,
   EmailGet,
+  EmailImport,
+  EmailSubmissionChanges,
+  EmailSubmissionGet,
+  EmailSubmissionQuery,
   EmailQuery,
   EmailQueryChanges,
   EmailSet,
@@ -17,9 +23,23 @@ import {
   MailboxSet,
   ThreadChanges,
   ThreadGet,
-} from "./methods";
+} from "./methods.js";
 import type {
+  EmailCopyObject,
+  EmailCopyRequest,
+  EmailCopyResponse,
+  EmailImportObject,
+  EmailImportRequest,
+  EmailImportResponse,
+  EmailSubmission,
+  EmailSubmissionChangesRequest,
+  EmailSubmissionChangesResponse,
+  EmailSubmissionFilter,
+  EmailSubmissionGetRequest,
+  EmailSubmissionGetResponse,
+  EmailSubmissionSort,
   EmailChangesRequest,
+  EmailChangesResponse,
   EmailGetResponse,
   EmailGetRequest,
   EmailSetRequest,
@@ -47,11 +67,14 @@ import type {
   EmailQuerySort,
   Thread,
   ThreadChangesRequest,
+  ThreadChangesResponse,
   ThreadGetRequest,
   ThreadGetResponse,
   MailboxGetRequest,
   MailboxGetResponse,
-} from "./types";
+} from "./types.js";
+
+const DEFAULT_EMAIL_SORT: readonly EmailQuerySort[] = [{ property: "receivedAt", isAscending: false }];
 
 type GetAllMailboxesResult = {
   results: Array<{ accountId: AccountId; response: MailboxGetResponse }>;
@@ -76,7 +99,7 @@ type ListPageResult = {
 
 type QueryPageOptions = {
   accountId: AccountId;
-  filter?: FilterOperatorCondition<EmailQueryFilter>;
+  filter?: JmapFilter<EmailQueryFilter>;
   limit?: number;
   position?: number;
   properties?: readonly EmailProperty[];
@@ -147,7 +170,7 @@ export class JmapMail {
   async queryMailboxes(
     accountId: AccountId,
     options?: {
-      filter?: FilterOperatorCondition<MailboxQueryFilter>;
+      filter?: JmapFilter<MailboxQueryFilter>;
       sort?: readonly MailboxQuerySort[];
       position?: number;
       anchor?: string;
@@ -177,7 +200,7 @@ export class JmapMail {
   async queryMailboxChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<MailboxQueryFilter>;
+      filter?: JmapFilter<MailboxQueryFilter>;
       sort?: readonly MailboxQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -217,10 +240,7 @@ export class JmapMail {
       }),
     );
 
-    const error = getSetError(response, "notUpdated", mailboxId);
-    if (error) {
-      throw new Error(error.description || "Failed to update mailbox");
-    }
+    assertSetOk(response, "mailbox");
 
     return response;
   }
@@ -238,10 +258,7 @@ export class JmapMail {
       }),
     );
 
-    const error = getSetError(response, "notDestroyed", mailboxId);
-    if (error) {
-      throw new Error(error.description || "Failed to destroy mailbox");
-    }
+    assertSetOk(response, "mailbox");
 
     return response;
   }
@@ -266,7 +283,7 @@ export class JmapMail {
       new EmailQuery({
         accountId: options.accountId.value,
         filter: options.filter,
-        sort: [{ property: "receivedAt", isAscending: false }],
+        sort: DEFAULT_EMAIL_SORT,
         limit,
         position,
         calculateTotal: true,
@@ -283,8 +300,10 @@ export class JmapMail {
     const emailGetResponse = response.get<EmailGetResponse>(getCallId, "Email/get");
     const emails = emailGetResponse.list;
     const emailState = emailGetResponse.state;
-    const total = query.total ?? 0;
-    const hasMore = total > 0 ? position + emails.length < total : emails.length === limit;
+    // By the query's ids: an email gone between the query and the get leaves the list short
+    const hasMore = query.total !== undefined
+      ? query.position + query.ids.length < query.total
+      : query.ids.length === (query.limit ?? limit);
 
     return { query, emails, emailState, hasMore };
   }
@@ -292,7 +311,7 @@ export class JmapMail {
   async queryChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<EmailQueryFilter>;
+      filter?: JmapFilter<EmailQueryFilter>;
       sort?: readonly EmailQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -319,8 +338,8 @@ export class JmapMail {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<EmailChangesRequest, JmapChangesResponse>(
+  ): Promise<EmailChangesResponse> {
+    return this.client.invoke<EmailChangesRequest, EmailChangesResponse>(
       new EmailChanges({
         accountId: accountId.value,
         sinceState,
@@ -367,8 +386,8 @@ export class JmapMail {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<ThreadChangesRequest, JmapChangesResponse>(
+  ): Promise<ThreadChangesResponse> {
+    return this.client.invoke<ThreadChangesRequest, ThreadChangesResponse>(
       new ThreadChanges({
         accountId: accountId.value,
         sinceState,
@@ -382,15 +401,11 @@ export class JmapMail {
     threadId: string,
     properties?: readonly EmailProperty[],
   ): Promise<JmapEmail[]> {
-    const thread = await this.getThread(accountId, threadId);
-    if (!thread?.emailIds.length) {
-      return [];
-    }
-
-    const response = await this.client.invoke<EmailGetRequest, EmailGetResponse>(
-      EmailGet.byIds(accountId, thread.emailIds, properties),
-    );
-    return [...response.list].sort((left, right) => {
+    const batch = this.client.batch();
+    const threadCallId = batch.call(ThreadGet.byIds(accountId, [threadId]));
+    const getCallId = batch.call(EmailGet.byThreads(accountId, threadCallId, properties));
+    const response = await batch.send();
+    return [...response.get<EmailGetResponse>(getCallId, "Email/get").list].sort((left, right) => {
       const leftTime = new Date(left.receivedAt ?? 0).getTime();
       const rightTime = new Date(right.receivedAt ?? 0).getTime();
       return rightTime - leftTime;
@@ -405,7 +420,7 @@ export class JmapMail {
     const response = await this.client.invoke<EmailQueryRequest, EmailQueryResponse>(new EmailQuery({
       accountId: accountId.value,
       filter: { inMailbox: mailboxId.value },
-      sort: [{ property: "receivedAt", isAscending: false }],
+      sort: DEFAULT_EMAIL_SORT,
       calculateTotal: true,
       limit: options?.limit ?? 500,
       position: options?.position ?? 0,
@@ -417,7 +432,7 @@ export class JmapMail {
     };
   }
 
-  async updateKeywords(accountId: AccountId, emailId: string, keywords: Record<string, boolean>): Promise<JmapSetResponse> {
+  async updateKeywords(accountId: AccountId, emailId: string, keywords: Record<string, true>): Promise<JmapSetResponse> {
     const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
       new EmailSet({
         accountId: accountId.value,
@@ -425,10 +440,7 @@ export class JmapMail {
       }),
     );
 
-    const error = getSetError(response, "notUpdated", emailId);
-    if (error) {
-      throw new Error(error.description || "Failed to update email keywords");
-    }
+    assertSetOk(response, "email");
 
     return response;
   }
@@ -468,42 +480,15 @@ export class JmapMail {
     return this.destroyMany(accountId, [emailId]);
   }
 
+  /** Destroy the emails, in as many requests as the session's maxObjectsInSet needs; each request stands alone. */
   async destroyMany(accountId: AccountId, emailIds: readonly string[]): Promise<JmapSetResponse> {
-    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
-      new EmailSet({
-        accountId: accountId.value,
-        destroy: emailIds,
-      }),
-    );
-
-    for (const emailId of emailIds) {
-      const error = getSetError(response, "notDestroyed", emailId);
-      if (error) {
-        throw new Error(error.description || `Failed to delete email ${emailId}`);
-      }
-    }
-
-    return response;
-  }
-
-  async queryTagCounts(accountId: AccountId, tags: readonly string[]): Promise<Record<string, number>> {
-    const batch = this.client.batch();
-    const callIds = tags.map((tag) =>
-      batch.call(new EmailQuery({
-        accountId: accountId.value,
-        filter: { hasKeyword: `$color:${tag}` },
-        calculateTotal: true,
-        limit: 0,
-      })),
-    );
-
-    const response = await batch.send();
-    return Object.fromEntries(
-      tags.map((tag, index) => {
-        const query = response.get<EmailQueryResponse>(callIds[index], "Email/query");
-        return [tag, query.total ?? 0];
-      }),
-    );
+    return setInChunks(this.client, emailIds, async (chunk) => {
+      const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
+        new EmailSet({ accountId: accountId.value, destroy: chunk }),
+      );
+      assertSetOk(response, "email");
+      return response;
+    });
   }
 
   async createDraft(options: {
@@ -549,7 +534,7 @@ export class JmapMail {
     accountId: AccountId,
     identityId: string,
     emailId: string,
-    onSuccess?: Record<string, unknown>,
+    onSuccess?: EmailUpdate,
   ): Promise<JmapSetResponse> {
     const response = await this.client.invoke<EmailSubmissionSetRequest, JmapSetResponse>(
       new EmailSubmissionSet({
@@ -562,35 +547,121 @@ export class JmapMail {
         },
         ...(onSuccess ? { onSuccessUpdateEmail: { "#submission": onSuccess } } : {}),
       }),
-      { capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:submission"] },
+      { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notCreated", "submission");
-    if (error) {
-      throw new Error(error.description || "Failed to submit email");
-    }
+    assertSetOk(response, "email submission");
 
     return response;
   }
 
+  /**
+   * Copy an email from another account (RFC 8621 4.7), into the mailboxes given; only its mailboxes, keywords and
+   * receivedAt can differ from the original's.
+   *
+   * @param options.onSuccessDestroyOriginal Destroy the original once copied, which moves the email.
+   */
+  async copyEmail(
+    accountId: AccountId,
+    fromAccountId: AccountId,
+    emailId: string,
+    email: EmailCopyObject,
+    options?: { onSuccessDestroyOriginal?: boolean },
+  ): Promise<JmapCreated<EmailCopyResponse>> {
+    const response = await this.client.invoke<EmailCopyRequest, EmailCopyResponse>(
+      new EmailCopy({
+        fromAccountId: fromAccountId.value,
+        accountId: accountId.value,
+        create: { [CREATION_ID]: { ...email, id: emailId } },
+        onSuccessDestroyOriginal: options?.onSuccessDestroyOriginal,
+      }),
+    );
+
+    return createdOne(response, "email");
+  }
+
+  /** Make an email of a message uploaded as a blob (RFC 8621 4.8). A server refusing a duplicate names the email it
+   *  has as the error's existingId. */
+  async importEmail(accountId: AccountId, email: EmailImportObject): Promise<JmapCreated<EmailImportResponse>> {
+    const response = await this.client.invoke<EmailImportRequest, EmailImportResponse>(
+      new EmailImport({ accountId: accountId.value, emails: { [CREATION_ID]: email } }),
+    );
+
+    return createdOne(response, "email");
+  }
+
+  /** The submissions by id, with their undoStatus and delivery status (RFC 8621 7.1). */
+  async getSubmissions(accountId: AccountId, ids: readonly string[]): Promise<EmailSubmissionGetResponse> {
+    return this.client.invoke<EmailSubmissionGetRequest, EmailSubmissionGetResponse>(
+      EmailSubmissionGet.byIds(accountId, ids),
+      { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
+    );
+  }
+
+  /** The submissions the filter matches, in one request (RFC 8621 7.3), such as those still pending. */
+  async listSubmissions(
+    accountId: AccountId,
+    filter?: JmapFilter<EmailSubmissionFilter>,
+    options?: { sort?: readonly EmailSubmissionSort[]; limit?: number },
+  ): Promise<EmailSubmission[]> {
+    const batch = this.client.batch({ capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES });
+    const queryCallId = batch.call(new EmailSubmissionQuery({
+      accountId: accountId.value,
+      filter,
+      sort: options?.sort,
+      limit: options?.limit,
+    }));
+    const getCallId = batch.call(EmailSubmissionGet.byQueryResult(accountId, queryCallId));
+    const response = await batch.send();
+    return response.get<EmailSubmissionGetResponse>(getCallId, "EmailSubmission/get").list;
+  }
+
+  async getSubmissionChanges(
+    accountId: AccountId,
+    sinceState: string,
+    options?: { maxChanges?: number },
+  ): Promise<EmailSubmissionChangesResponse> {
+    return this.client.invoke<EmailSubmissionChangesRequest, EmailSubmissionChangesResponse>(
+      new EmailSubmissionChanges({ accountId: accountId.value, sinceState, maxChanges: options?.maxChanges }),
+      { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
+    );
+  }
+
+  /** Cancel a submission not yet sent (RFC 8621 7.5); one already final is refused (cannotUnsend). */
+  async cancelSubmission(accountId: AccountId, submissionId: string): Promise<JmapSetResponse> {
+    return this.setSubmission(accountId, { update: { [submissionId]: { undoStatus: "canceled" } } });
+  }
+
+  /** Destroy a submission's record (RFC 8621 7.5); it doesn't cancel the delivery. */
+  async destroySubmission(accountId: AccountId, submissionId: string): Promise<JmapSetResponse> {
+    return this.setSubmission(accountId, { destroy: [submissionId] });
+  }
+
+  private async setSubmission(
+    accountId: AccountId,
+    changes: Pick<EmailSubmissionSetRequest, "update" | "destroy">,
+  ): Promise<JmapSetResponse> {
+    const response = await this.client.invoke<EmailSubmissionSetRequest, JmapSetResponse>(
+      new EmailSubmissionSet({ accountId: accountId.value, ...changes }),
+      { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
+    );
+
+    assertSetOk(response, "email submission");
+
+    return response;
+  }
+
+  /** Patch the emails, in as many requests as the session's maxObjectsInSet needs; each request stands alone. */
   private async patchEmails(
     accountId: AccountId,
     updates: Record<string, EmailUpdate>,
   ): Promise<JmapSetResponse> {
-    const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
-      new EmailSet({
-        accountId: accountId.value,
-        update: updates,
-      }),
-    );
-
-    for (const emailId of Object.keys(updates)) {
-      const error = getSetError(response, "notUpdated", emailId);
-      if (error) {
-        throw new Error(error.description || `Failed to update email ${emailId}`);
-      }
-    }
-
-    return response;
+    return setInChunks(this.client, Object.entries(updates), async (chunk) => {
+      const response = await this.client.invoke<EmailSetRequest, JmapSetResponse>(
+        new EmailSet({ accountId: accountId.value, update: Object.fromEntries(chunk) }),
+      );
+      assertSetOk(response, "email");
+      return response;
+    });
   }
 }

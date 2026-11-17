@@ -1,10 +1,10 @@
-import { CORE_NOTES_CAPABILITIES } from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import type { JmapChangesResponse } from "../core/changes";
-import type { FilterOperatorCondition } from "../core/query";
-import type { JmapCreated, JmapSetResponse } from "../core/set";
-import { CREATION_ID, createdOne, getSetError } from "../core/set";
+import { paginate } from "../core/paginate.js";
+import { CORE_NOTES_CAPABILITIES } from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import type { JmapFilter } from "../core/query.js";
+import type { JmapCreated, JmapSetResponse } from "../core/set.js";
+import { CREATION_ID, createdOne, assertSetOk } from "../core/set.js";
 import {
   NoteBookChanges,
   NoteBookGet,
@@ -15,17 +15,18 @@ import {
   NoteQuery,
   NoteQueryChanges,
   NoteSet,
-} from "./methods";
+} from "./methods.js";
 import type {
   Note,
-  NoteBook,
   NoteBookChangesRequest,
+  NoteBookChangesResponse,
   NoteBookCreate,
   NoteBookGetRequest,
   NoteBookGetResponse,
   NoteBookSetRequest,
   NoteBookUpdate,
   NoteChangesRequest,
+  NoteChangesResponse,
   NoteCopyRequest,
   NoteCopyResponse,
   NoteCreate,
@@ -36,11 +37,10 @@ import type {
   NoteQueryChangesRequest,
   NoteQueryChangesResponse,
   NoteQueryRequest,
-  NoteQueryResponse,
   NoteQuerySort,
   NoteSetRequest,
   NoteUpdate,
-} from "./types";
+} from "./types.js";
 
 export const DEFAULT_NOTE_PROPERTIES = [
   "id",
@@ -61,14 +61,6 @@ export class JmapNotes {
 
   // --- NoteBook operations ---
 
-  async listNoteBooks(accountId: AccountId): Promise<NoteBook[]> {
-    const response = await this.client.invoke<NoteBookGetRequest, NoteBookGetResponse>(
-      NoteBookGet.all(accountId),
-      { capabilities: CORE_NOTES_CAPABILITIES },
-    );
-    return response.list;
-  }
-
   async getNoteBooks(accountId: AccountId): Promise<NoteBookGetResponse> {
     return this.client.invoke<NoteBookGetRequest, NoteBookGetResponse>(
       NoteBookGet.all(accountId),
@@ -80,8 +72,8 @@ export class JmapNotes {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<NoteBookChangesRequest, JmapChangesResponse>(
+  ): Promise<NoteBookChangesResponse> {
+    return this.client.invoke<NoteBookChangesRequest, NoteBookChangesResponse>(
       new NoteBookChanges({
         accountId: accountId.value,
         sinceState,
@@ -119,10 +111,7 @@ export class JmapNotes {
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", noteBookId);
-    if (error) {
-      throw new Error(error.description || "Failed to update notebook");
-    }
+    assertSetOk(response, "notebook");
 
     return response;
   }
@@ -141,10 +130,7 @@ export class JmapNotes {
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", noteBookId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete notebook");
-    }
+    assertSetOk(response, "notebook");
 
     return response;
   }
@@ -156,37 +142,22 @@ export class JmapNotes {
     noteBookId?: string,
     properties: readonly NoteProperty[] = DEFAULT_NOTE_PROPERTIES,
   ): Promise<Note[]> {
-    const PAGE_SIZE = 256;
-    const allNotes: Note[] = [];
-    let position = 0;
-
-    for (;;) {
-      const batch = this.client.batch({ capabilities: CORE_NOTES_CAPABILITIES });
-      const queryCallId = batch.call(new NoteQuery({
+    return paginate<Note>(
+      this.client,
+      CORE_NOTES_CAPABILITIES,
+      (position, limit) => new NoteQuery({
         accountId: accountId.value,
         filter: noteBookId ? { inNoteBook: noteBookId } : undefined,
-        limit: PAGE_SIZE,
         position,
-        calculateTotal: true,
-      }));
-      const getCallId = batch.call(NoteGet.byQueryResult(accountId, queryCallId, properties));
-      const response = await batch.send();
-
-      const queryResult = response.get<NoteQueryResponse>(queryCallId, "Note/query");
-      const notes = response.get<NoteGetResponse>(getCallId, "Note/get").list;
-      allNotes.push(...notes);
-
-      const total = queryResult.total ?? notes.length;
-      position += notes.length;
-      if (position >= total || notes.length < PAGE_SIZE) break;
-    }
-
-    return allNotes;
+        limit,
+      }),
+      (queryCallId) => NoteGet.byQueryResult(accountId, queryCallId, properties),
+    );
   }
 
   async queryNotes(
     accountId: AccountId,
-    filter: FilterOperatorCondition<NoteFilter>,
+    filter: JmapFilter<NoteFilter>,
     options?: {
       sort?: readonly NoteQuerySort[];
       limit?: number;
@@ -210,7 +181,7 @@ export class JmapNotes {
   async queryNoteChanges(
     accountId: AccountId,
     options: {
-      filter?: FilterOperatorCondition<NoteFilter>;
+      filter?: JmapFilter<NoteFilter>;
       sort?: readonly NoteQuerySort[];
       sinceQueryState: string;
       maxChanges?: number;
@@ -260,8 +231,8 @@ export class JmapNotes {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<NoteChangesRequest, JmapChangesResponse>(
+  ): Promise<NoteChangesResponse> {
+    return this.client.invoke<NoteChangesRequest, NoteChangesResponse>(
       new NoteChanges({
         accountId: accountId.value,
         sinceState,
@@ -299,10 +270,7 @@ export class JmapNotes {
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", noteId);
-    if (error) {
-      throw new Error(error.description || "Failed to update note");
-    }
+    assertSetOk(response, "note");
 
     return response;
   }
@@ -324,10 +292,7 @@ export class JmapNotes {
       { capabilities: CORE_NOTES_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", noteId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete note");
-    }
+    assertSetOk(response, "note");
 
     return response;
   }

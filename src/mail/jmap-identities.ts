@@ -1,20 +1,20 @@
 import {
   CORE_MAIL_SUBMISSION_CAPABILITIES,
-} from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import type { JmapChangesResponse } from "../core/changes";
-import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
-import { AccountId } from "../core/ids";
-import { IdentityChanges, IdentityGet, IdentitySet } from "./methods";
+} from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { CREATION_ID, createdOne, assertSetOk, type JmapCreated, type JmapSetResponse } from "../core/set.js";
+import { AccountId } from "../core/ids.js";
+import { IdentityChanges, IdentityGet, IdentitySet } from "./methods.js";
 import type {
   Identity,
   IdentityCreate,
   IdentityUpdate,
   IdentityChangesRequest,
+  IdentityChangesResponse,
   IdentityGetRequest,
   IdentityGetResponse,
   IdentitySetRequest,
-} from "./types";
+} from "./types.js";
 
 export class JmapIdentities {
   constructor(private readonly client: JmapClient) {}
@@ -30,8 +30,8 @@ export class JmapIdentities {
     accountId: AccountId,
     sinceState: string,
     options?: { maxChanges?: number },
-  ): Promise<JmapChangesResponse> {
-    return this.client.invoke<IdentityChangesRequest, JmapChangesResponse>(
+  ): Promise<IdentityChangesResponse> {
+    return this.client.invoke<IdentityChangesRequest, IdentityChangesResponse>(
       new IdentityChanges({
         accountId: accountId.value,
         sinceState,
@@ -62,10 +62,7 @@ export class JmapIdentities {
       { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", identityId);
-    if (error) {
-      throw new Error(error.description || "Failed to update identity");
-    }
+    assertSetOk(response, "identity");
 
     return response;
   }
@@ -79,10 +76,7 @@ export class JmapIdentities {
       { capabilities: CORE_MAIL_SUBMISSION_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", identityId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete identity");
-    }
+    assertSetOk(response, "identity");
 
     return response;
   }

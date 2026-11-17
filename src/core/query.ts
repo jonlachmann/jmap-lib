@@ -18,16 +18,26 @@ export type JmapFilterCondition<Condition> = Condition & {
 
 export interface JmapFilterOperator<Condition> {
   operator: JmapFilterOperatorName;
-  conditions: readonly FilterOperatorCondition<Condition>[];
+  conditions: readonly JmapFilter<Condition>[];
 }
 
-export type FilterOperatorCondition<Condition> =
+export type JmapFilter<Condition> =
   | JmapFilterCondition<Condition>
   | JmapFilterOperator<Condition>;
 
+/** A filter matching any of the ids by the condition that names one (inCalendar, inTaskList), or none for no ids. */
+export function inAny<Name extends string>(
+  condition: Name,
+  ids: readonly string[] | undefined,
+): JmapFilter<Record<Name, string>> | undefined {
+  if (!ids?.length) return undefined;
+  const conditions = ids.map((id) => ({ [condition]: id }) as JmapFilterCondition<Record<Name, string>>);
+  return conditions.length === 1 ? conditions[0] : { operator: "OR", conditions };
+}
+
 export interface JmapQueryArgs<Filter, Sort> {
   accountId: string;
-  filter?: FilterOperatorCondition<Filter> | null;
+  filter?: JmapFilter<Filter> | null;
   sort?: readonly Sort[] | null;
   position?: number;
   anchor?: string | null;
@@ -36,9 +46,21 @@ export interface JmapQueryArgs<Filter, Sort> {
   calculateTotal?: boolean;
 }
 
+/** RFC 8620 5.5. */
+export interface JmapQueryResponse {
+  accountId: string;
+  queryState: string;
+  canCalculateChanges: boolean;
+  position: number;
+  ids: string[];
+  total?: number;
+  /** Present when the server returned fewer ids than asked for. */
+  limit?: number;
+}
+
 export interface JmapQueryChangesArgs<Filter, Sort> {
   accountId: string;
-  filter?: FilterOperatorCondition<Filter> | null;
+  filter?: JmapFilter<Filter> | null;
   sort?: readonly Sort[] | null;
   sinceQueryState: string;
   maxChanges?: number | null;
@@ -52,5 +74,5 @@ export interface JmapQueryChangesResponse {
   newQueryState: string;
   total?: number;
   removed: string[];
-  added?: readonly JmapQueryAddedItem[] | null;
+  added: readonly JmapQueryAddedItem[];
 }

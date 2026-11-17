@@ -1,8 +1,21 @@
-import type { JmapGetArgs } from "../core/get";
-import type { JmapPatchObject } from "../core/patch";
-import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query";
-import type { JmapSetArgs } from "../core/set";
-import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes";
+import type { JmapCopyArgs, JmapCopyResponse } from "../core/copy.js";
+import type { JmapGetResponse } from "../core/get.js";
+import type { JmapQueryResponse } from "../core/query.js";
+import type { JmapGetArgs } from "../core/get.js";
+import type { JmapPatchObject } from "../core/patch.js";
+import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query.js";
+import type { JmapSetArgs } from "../core/set.js";
+import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes.js";
+import type {
+  Alert,
+  RecurrenceOverride,
+  RecurrenceRule,
+  Relation,
+  TaskLink,
+  TaskLocation,
+  TaskParticipant,
+  VirtualLocation,
+} from "../jscalendar/types.js";
 
 // --- TaskRights ---
 
@@ -32,8 +45,8 @@ export interface TaskList {
   workflowStatuses?: string[];
   shareWith?: Record<string, TaskRights> | null;
   myRights?: TaskRights;
-  defaultAlertsWithTime?: Record<string, unknown> | null;
-  defaultAlertsWithoutTime?: Record<string, unknown> | null;
+  defaultAlertsWithTime?: Record<string, Alert> | null;
+  defaultAlertsWithoutTime?: Record<string, Alert> | null;
 }
 
 export type TaskListProperty =
@@ -64,21 +77,19 @@ export type TaskListMutable = {
   timeZone?: string | null;
   workflowStatuses?: string[];
   shareWith?: Record<string, TaskRights> | null;
-  defaultAlertsWithTime?: Record<string, unknown> | null;
-  defaultAlertsWithoutTime?: Record<string, unknown> | null;
+  defaultAlertsWithTime?: Record<string, Alert> | null;
+  defaultAlertsWithoutTime?: Record<string, Alert> | null;
 };
 
-export interface TaskListCreate extends TaskListMutable {}
+export interface TaskListCreate extends TaskListMutable {
+  name: string;
+}
 
 export type TaskListUpdate = JmapPatchObject<TaskListMutable>;
 
 export interface TaskListGetRequest extends JmapGetArgs<TaskListProperty> {}
 
-export interface TaskListGetResponse {
-  accountId: string;
-  state: string;
-  list: TaskList[];
-}
+export type TaskListGetResponse = JmapGetResponse<TaskList>;
 
 export interface TaskListChangesRequest extends JmapChangesArgs {}
 
@@ -124,24 +135,10 @@ export interface Comment {
   author?: Person;
 }
 
-// --- Relation ---
-
-export type RelationType =
-  | "first"
-  | "next"
-  | "child"
-  | "parent"
-  | "depends-on"
-  | "clone"
-  | "duplicate"
-  | "cause";
-
-export interface Relation {
-  "@type"?: "Relation";
-  relation?: Partial<Record<RelationType, boolean>>;
-}
-
 // --- Task ---
+
+/** RFC 8984 5.2.5, and values registered since. */
+export type TaskProgress = "needs-action" | "in-process" | "completed" | "failed" | "cancelled" | (string & {});
 
 export interface Task {
   id: string;
@@ -149,6 +146,14 @@ export interface Task {
   isDraft?: boolean;
   uid?: string;
   "@type"?: "Task";
+  /** RFC 8984 4.1.7, 4.1.4, 4.2.6, 4.4.5, 4.6.1, 4.7.2: as on an event. */
+  sequence?: number;
+  prodId?: string;
+  locale?: string;
+  sentBy?: string | null;
+  requestStatus?: string;
+  localizations?: Record<string, Record<string, unknown>> | null;
+  timeZones?: Record<string, unknown> | null;
   created?: string;
   updated?: string;
   title?: string;
@@ -156,10 +161,11 @@ export interface Task {
   descriptionContentType?: string;
   start?: string | null;
   due?: string | null;
-  duration?: string | null;
+  /** RFC 8984 5.2.3: how long the task is expected to take. */
+  estimatedDuration?: string | null;
   timeZone?: string | null;
   showWithoutTime?: boolean;
-  progress?: "needs-action" | "in-process" | "completed" | "failed" | "cancelled" | null;
+  progress?: TaskProgress | null;
   progressUpdated?: string | null;
   percentComplete?: number | null;
   estimatedWork?: number | null;
@@ -170,11 +176,11 @@ export interface Task {
   privacy?: "public" | "private" | "secret";
   replyTo?: Record<string, string> | null;
   color?: string | null;
-  keywords?: Record<string, boolean> | null;
-  categories?: Record<string, boolean> | null;
-  locations?: Record<string, unknown> | null;
-  virtualLocations?: Record<string, unknown> | null;
-  links?: Record<string, unknown> | null;
+  keywords?: Record<string, true> | null;
+  categories?: Record<string, true> | null;
+  locations?: Record<string, TaskLocation> | null;
+  virtualLocations?: Record<string, VirtualLocation> | null;
+  links?: Record<string, TaskLink> | null;
   relatedTo?: Record<string, Relation> | null;
   checklists?: Record<string, Checklist> | null;
   comments?: Record<string, Comment> | null;
@@ -182,19 +188,21 @@ export interface Task {
   utcDue?: string;
   // Recurrences extension
   baseTaskId?: string | null;
-  recurrenceRules?: unknown[] | null;
-  excludedRecurrenceRules?: unknown[] | null;
-  recurrenceOverrides?: Record<string, unknown> | null;
+  recurrenceRules?: RecurrenceRule[] | null;
+  excludedRecurrenceRules?: RecurrenceRule[] | null;
+  recurrenceOverrides?: Record<string, TaskOverride> | null;
   recurrenceId?: string | null;
+  recurrenceIdTimeZone?: string | null;
+  excluded?: boolean;
   // Assignees extension
   isOrigin?: boolean;
-  participants?: Record<string, unknown> | null;
+  participants?: Record<string, TaskParticipant> | null;
   mayInviteSelf?: boolean;
   mayInviteOthers?: boolean;
   hideAttendees?: boolean;
   // Alerts extension
   useDefaultAlerts?: boolean;
-  alerts?: Record<string, unknown> | null;
+  alerts?: Record<string, Alert> | null;
   freeBusyStatus?: "free" | "busy";
 }
 
@@ -211,7 +219,7 @@ export type TaskProperty =
   | "descriptionContentType"
   | "start"
   | "due"
-  | "duration"
+  | "estimatedDuration"
   | "timeZone"
   | "showWithoutTime"
   | "progress"
@@ -247,7 +255,16 @@ export type TaskProperty =
   | "hideAttendees"
   | "useDefaultAlerts"
   | "alerts"
-  | "freeBusyStatus";
+  | "freeBusyStatus"
+  | "sequence"
+  | "prodId"
+  | "locale"
+  | "sentBy"
+  | "requestStatus"
+  | "localizations"
+  | "timeZones"
+  | "recurrenceIdTimeZone"
+  | "excluded";
 
 export type TaskMutable = {
   taskListId?: string;
@@ -258,10 +275,11 @@ export type TaskMutable = {
   descriptionContentType?: string;
   start?: string | null;
   due?: string | null;
-  duration?: string | null;
+  /** RFC 8984 5.2.3: how long the task is expected to take. */
+  estimatedDuration?: string | null;
   timeZone?: string | null;
   showWithoutTime?: boolean;
-  progress?: "needs-action" | "in-process" | "completed" | "failed" | "cancelled" | null;
+  progress?: TaskProgress | null;
   progressUpdated?: string | null;
   percentComplete?: number | null;
   estimatedWork?: number | null;
@@ -272,28 +290,43 @@ export type TaskMutable = {
   privacy?: "public" | "private" | "secret";
   replyTo?: Record<string, string> | null;
   color?: string | null;
-  keywords?: Record<string, boolean> | null;
-  categories?: Record<string, boolean> | null;
-  locations?: Record<string, unknown> | null;
-  virtualLocations?: Record<string, unknown> | null;
-  links?: Record<string, unknown> | null;
+  keywords?: Record<string, true> | null;
+  categories?: Record<string, true> | null;
+  locations?: Record<string, TaskLocation> | null;
+  virtualLocations?: Record<string, VirtualLocation> | null;
+  links?: Record<string, TaskLink> | null;
   relatedTo?: Record<string, Relation> | null;
   checklists?: Record<string, Checklist> | null;
   comments?: Record<string, Comment> | null;
   // Recurrences extension
-  recurrenceRules?: unknown[] | null;
-  excludedRecurrenceRules?: unknown[] | null;
-  recurrenceOverrides?: Record<string, unknown> | null;
+  recurrenceRules?: RecurrenceRule[] | null;
+  excludedRecurrenceRules?: RecurrenceRule[] | null;
+  recurrenceOverrides?: Record<string, TaskOverride> | null;
   // Assignees extension
-  participants?: Record<string, unknown> | null;
+  participants?: Record<string, TaskParticipant> | null;
   mayInviteSelf?: boolean;
   mayInviteOthers?: boolean;
   hideAttendees?: boolean;
   // Alerts extension
   useDefaultAlerts?: boolean;
-  alerts?: Record<string, unknown> | null;
+  alerts?: Record<string, Alert> | null;
   freeBusyStatus?: "free" | "busy";
 };
+
+/** RFC 8984 4.3.5: what one occurrence of a task changes; the properties left out are the series'. */
+export type TaskOverride = RecurrenceOverride<
+  Omit<
+    TaskMutable,
+    | "taskListId"
+    | "uid"
+    | "privacy"
+    | "relatedTo"
+    | "replyTo"
+    | "recurrenceRules"
+    | "excludedRecurrenceRules"
+    | "recurrenceOverrides"
+  >
+>;
 
 export interface TaskCreate extends TaskMutable {}
 
@@ -301,20 +334,13 @@ export type TaskUpdate = JmapPatchObject<TaskMutable>;
 
 // --- Task method request/response types ---
 
+/** CalendarEvent/get's arguments (draft-ietf-jmap-tasks 4.9). */
 export interface TaskGetRequest extends JmapGetArgs<TaskProperty> {
-  "#ids"?: {
-    resultOf: string;
-    name: "Task/query";
-    path: "/ids";
-  };
+  /** The zone floating tasks are read in for utcStart and utcDue. */
+  timeZone?: string;
 }
 
-export interface TaskGetResponse {
-  accountId: string;
-  state: string;
-  list: Task[];
-  notFound?: string[];
-}
+export type TaskGetResponse = JmapGetResponse<Task>;
 
 export interface TaskChangesRequest extends JmapChangesArgs {}
 
@@ -322,36 +348,22 @@ export interface TaskChangesResponse extends JmapChangesResponse {}
 
 export interface TaskSetRequest extends JmapSetArgs<TaskCreate, TaskUpdate> {}
 
-export interface TaskCopyRequest {
-  fromAccountId: string;
-  ifFromInState?: string | null;
-  accountId: string;
-  ifInState?: string | null;
-  create: Record<string, TaskCreate>;
-  onSuccessDestroyOriginal?: boolean;
-  destroyFromIfInState?: string | null;
-}
+export interface TaskCopyRequest extends JmapCopyArgs<TaskCreate> {}
 
-export interface TaskCopyResponse {
-  fromAccountId: string;
-  accountId: string;
-  oldState?: string;
-  newState?: string;
-  created?: Record<string, Task>;
-  notCreated?: Record<string, import("../core/set").JmapMethodError>;
-}
+export type TaskCopyResponse = JmapCopyResponse<Task>;
 
 // --- Task query ---
 
+/** The draft leaves Task/query's filter to be written; these follow CalendarEvent/query's. */
 export interface TaskFilter {
-  inTaskLists?: string[];
+  inTaskList?: string;
   after?: string;
   before?: string;
   text?: string;
   title?: string;
   description?: string;
-  workflowStatus?: string;
-  progress?: string;
+  isComplete?: boolean;
+  progress?: TaskProgress;
   uid?: string;
 }
 
@@ -359,15 +371,15 @@ export type TaskQuerySortProperty = string & {};
 
 export interface TaskQuerySort extends JmapComparator<TaskQuerySortProperty> {}
 
-export interface TaskQueryRequest extends JmapQueryArgs<TaskFilter, TaskQuerySort> {}
-
-export interface TaskQueryResponse {
-  accountId: string;
-  queryState?: string;
-  ids: string[];
-  position: number;
-  total?: number;
+/** CalendarEvent/query's arguments (draft-ietf-jmap-tasks 4.13). */
+export interface TaskQueryRequest extends JmapQueryArgs<TaskFilter, TaskQuerySort> {
+  /** Each instance of a recurring task as an id of its own, over at most the account's maxExpandedQueryDuration. */
+  expandRecurrences?: boolean;
+  /** The zone after and before are read in; Etc/UTC when not given. */
+  timeZone?: string;
 }
+
+export type TaskQueryResponse = JmapQueryResponse;
 
 export interface TaskQueryChangesRequest extends JmapQueryChangesArgs<TaskFilter, TaskQuerySort> {}
 
@@ -411,12 +423,7 @@ export interface TaskNotificationQuerySort extends JmapComparator<TaskNotificati
 
 export interface TaskNotificationGetRequest extends JmapGetArgs<TaskNotificationProperty> {}
 
-export interface TaskNotificationGetResponse {
-  accountId: string;
-  state: string;
-  list: TaskNotification[];
-  notFound?: string[];
-}
+export type TaskNotificationGetResponse = JmapGetResponse<TaskNotification>;
 
 export interface TaskNotificationChangesRequest extends JmapChangesArgs {}
 
@@ -427,13 +434,7 @@ export interface TaskNotificationSetRequest extends JmapSetArgs<never, never> {}
 export interface TaskNotificationQueryRequest
   extends JmapQueryArgs<TaskNotificationFilter, TaskNotificationQuerySort> {}
 
-export interface TaskNotificationQueryResponse {
-  accountId: string;
-  queryState?: string;
-  ids: string[];
-  position: number;
-  total?: number;
-}
+export type TaskNotificationQueryResponse = JmapQueryResponse;
 
 export interface TaskNotificationQueryChangesRequest
   extends JmapQueryChangesArgs<TaskNotificationFilter, TaskNotificationQuerySort> {}

@@ -1,14 +1,13 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId, CallId } from "../core/ids";
-import type { JmapSetResponse } from "../core/set";
+import { resultOf } from "../core/reference.js";
+import type { JmapMethod } from "../core/method.js";
+import { AccountId, CallId } from "../core/ids.js";
+import type { JmapSetResponse } from "../core/set.js";
 import type {
   AddressBookChangesRequest,
   AddressBookChangesResponse,
   AddressBookGetRequest,
   AddressBookGetResponse,
   AddressBookSetRequest,
-  ContactCardParseRequest,
-  ContactCardParseResponse,
   ContactCardChangesRequest,
   ContactCardChangesResponse,
   ContactCardGetRequest,
@@ -18,7 +17,7 @@ import type {
   ContactCardQueryChangesResponse,
   ContactCardQueryResponse,
   ContactCardSetRequest,
-} from "./types";
+} from "./types.js";
 
 export class AddressBookGet implements JmapMethod<AddressBookGetRequest, AddressBookGetResponse> {
   readonly methodName = "AddressBook/get";
@@ -86,11 +85,7 @@ export class ContactCardGet implements JmapMethod<ContactCardGetRequest, Contact
   static byQueryResult(accountId: AccountId, queryCallId: CallId): ContactCardGet {
     return new ContactCardGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: queryCallId.value,
-        name: "ContactCard/query",
-        path: "/ids",
-      },
+      "#ids": resultOf(queryCallId, "ContactCard/query", "/ids"),
     });
   }
 }
@@ -106,15 +101,6 @@ export class AddressBookSet
   }
 }
 
-/** One vCard per blob as a card, not stored (Stalwart's and Cyrus' ContactCard/parse). */
-export class ContactCardParse implements JmapMethod<ContactCardParseRequest, ContactCardParseResponse> {
-  readonly methodName = "ContactCard/parse";
-  readonly arguments: ContactCardParseRequest;
-
-  constructor(args: ContactCardParseRequest) {
-    this.arguments = args;
-  }
-}
 
 export class ContactCardSet
   implements JmapMethod<ContactCardSetRequest, JmapSetResponse>

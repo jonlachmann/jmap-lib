@@ -5,7 +5,7 @@ import {
   AccountId,
   ContactCardQuery,
   EmailQuery,
-  type FilterOperatorCondition,
+  type JmapFilter,
   type JmapQueryArgs,
   type JmapComparator,
 } from "jmap-lib";
@@ -32,10 +32,10 @@ test("JmapQueryArgs models the shared RFC query arguments", () => {
   assert.equal(args.sort?.[0].collation, "i;unicode-casemap");
 });
 
-test("FilterOperatorCondition models nested RFC query filters", () => {
+test("JmapFilter models nested RFC query filters", () => {
   type Condition = { inMailbox?: string; text?: string };
 
-  const filter: FilterOperatorCondition<Condition> = {
+  const filter: JmapFilter<Condition> = {
     operator: "AND",
     conditions: [
       { inMailbox: "inbox" },

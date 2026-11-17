@@ -7,8 +7,13 @@ import {
   DEFAULT_CALENDAR_EVENT_PROPERTIES,
   JMAP_CALENDARS_PARSE_CAPABILITY,
   JmapCalendars,
+  JmapProtocolError,
+  JmapSetRefusedError,
+  ParticipantIdentityGet,
   type CalendarEventQueryRequest,
   type CalendarEventQueryResponse,
+  type ParticipantIdentityGetRequest,
+  type ParticipantIdentityGetResponse,
 } from "jmap-lib";
 import {
   getSingleUserIntegrationSkipReason,
@@ -71,7 +76,7 @@ test("integration: updates a calendar when calendars is supported", { skip }, as
       color: "#663399",
     });
 
-    const calendars = await calendarsClient.list(context.accountId);
+    const calendars = (await calendarsClient.getCalendars(context.accountId)).list;
     const updated = calendars.find((calendar) => calendar.id === calendarId);
     assert.ok(updated, "expected updated calendar to be listed");
     assert.equal(updated.name, updatedName);
@@ -94,7 +99,7 @@ test("integration: destroys a calendar when calendars is supported", { skip }, a
 
   await calendarsClient.destroy(context.accountId, calendarId);
 
-  const calendars = await calendarsClient.list(context.accountId);
+  const calendars = (await calendarsClient.getCalendars(context.accountId)).list;
   assert.equal(
     calendars.some((calendar) => calendar.id === calendarId),
     false,
@@ -146,7 +151,7 @@ test("integration: queries calendar events with an operator filter when calendar
     filter: {
       operator: "AND",
       conditions: [
-        { inCalendars: [calendar.id] },
+        { inCalendar: calendar.id },
       ],
     },
     limit: 10,
@@ -181,7 +186,7 @@ test("integration: queries seeded calendar events and reports query changes dete
     filter: {
       operator: "AND",
       conditions: [
-        { inCalendars: [calendar.id] },
+        { inCalendar: calendar.id },
         { text: marker },
       ],
     },
@@ -208,7 +213,7 @@ test("integration: queries seeded calendar events and reports query changes dete
       filter: {
         operator: "AND",
         conditions: [
-          { inCalendars: [calendar.id] },
+          { inCalendar: calendar.id },
           { text: marker },
         ],
       },
@@ -225,7 +230,7 @@ test("integration: queries seeded calendar events and reports query changes dete
       filter: {
         operator: "AND",
         conditions: [
-          { inCalendars: [calendar.id] },
+          { inCalendar: calendar.id },
           { text: marker },
         ],
       },
@@ -252,7 +257,6 @@ test("integration: creates a calendar event when calendars is supported", { skip
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventClientId = createClientId("create-event");
   const eventId = (await calendarsClient.createEvent(
     context.accountId,
     buildEventPayload(calendar.id, "Create event"),
@@ -271,7 +275,6 @@ test("integration: gets a created calendar event when calendars is supported", {
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventClientId = createClientId("get-event");
   const eventId = (await calendarsClient.createEvent(
     context.accountId,
     buildEventPayload(calendar.id, "Get event"),
@@ -298,7 +301,6 @@ test("integration: updates a calendar event when calendars is supported", { skip
   const { context, calendarsClient, calendar } = setup;
 
   const updatedTitle = `Updated event ${Date.now()}`;
-  const eventClientId = createClientId("update-event");
   const eventId = (await calendarsClient.createEvent(
     context.accountId,
     buildEventPayload(calendar.id, "Original event"),
@@ -328,7 +330,6 @@ test("integration: destroys a calendar event when calendars is supported", { ski
   if (!setup) return;
   const { context, calendarsClient, calendar } = setup;
 
-  const eventClientId = createClientId("destroy-event");
   const eventId = (await calendarsClient.createEvent(
     context.accountId,
     buildEventPayload(calendar.id, "Destroy event"),
@@ -367,13 +368,9 @@ test("integration: parses calendar events from an uploaded ics blob when calenda
   );
 });
 
-function createClientId(prefix: string): string {
-  return createIntegrationId(prefix);
-}
-
 function buildEventPayload(calendarId: string, title: string) {
   return {
-    calendarIds: { [calendarId]: true },
+    calendarIds: { [calendarId]: true as const },
     uid: `jmap-lib-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title,
     start: "2030-01-15T10:00:00",
@@ -399,3 +396,39 @@ function buildIcsPayload(): string {
     "END:VCALENDAR",
   ].join("\r\n");
 }
+
+test("integration: follows participant identity changes (draft-ietf-jmap-calendars-34 3.2)", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
+
+  const identities = await context.client.invoke<ParticipantIdentityGetRequest, ParticipantIdentityGetResponse>(
+    ParticipantIdentityGet.all(context.accountId),
+  );
+  try {
+    const changes = await calendarsClient.getParticipantIdentityChanges(context.accountId, identities.state);
+    assert.equal(changes.oldState, identities.state);
+  } catch (error) {
+    // The draft lets a server that can't work out the changes say so
+    assert.ok(error instanceof JmapProtocolError && error.type === "cannotCalculateChanges", String(error));
+  }
+});
+
+test("integration: creating a participant identity is done or refused as forbidden (draft-ietf-jmap-calendars-34 3.3)", { skip }, async (t) => {
+  const setup = await createCalendarsIntegrationContext(t);
+  if (!setup) return;
+  const { context, calendarsClient } = setup;
+
+  let created: string | undefined;
+  try {
+    created = (await calendarsClient.createParticipantIdentity(
+      context.accountId,
+      { name: "Integration", calendarAddress: `mailto:${context.session.username}` },
+    )).id;
+    await calendarsClient.updateParticipantIdentity(context.accountId, created, { name: "Integration renamed" });
+  } catch (error) {
+    assert.ok(error instanceof JmapSetRefusedError && error.setError.type === "forbidden", String(error));
+  } finally {
+    if (created) await calendarsClient.destroyParticipantIdentity(context.accountId, created);
+  }
+});

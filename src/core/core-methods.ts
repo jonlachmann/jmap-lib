@@ -1,4 +1,4 @@
-import type { JmapMethod } from "./method";
+import type { JmapMethod } from "./method.js";
 
 export interface CoreEchoRequest {
   [key: string]: unknown;

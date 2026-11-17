@@ -6,7 +6,6 @@ import {
   CalendarEventGet,
   ContactCardGet,
   CORE_CALENDARS_CAPABILITIES,
-  CORE_CONTACTS_CAPABILITIES,
   EmailSubmissionSet,
   JmapClient,
   SieveScriptSet,
@@ -16,7 +15,7 @@ test("JmapClient can override capabilities for a request", async () => {
   const requests: Array<{ body: unknown }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (_url, init) => {
       requests.push({ body: JSON.parse(String(init?.body)) });

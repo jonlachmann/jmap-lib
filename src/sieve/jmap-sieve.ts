@@ -1,16 +1,17 @@
-import { CORE_SIEVE_CAPABILITIES } from "../core/capabilities";
-import { JmapClient } from "../core/client";
-import { AccountId } from "../core/ids";
-import { CREATION_ID, createdOne, getSetError, type JmapCreated, type JmapSetResponse } from "../core/set";
-import { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./methods";
+import { CORE_SIEVE_CAPABILITIES } from "../core/capabilities.js";
+import { JmapClient } from "../core/client.js";
+import { AccountId } from "../core/ids.js";
+import { CREATION_ID, createdOne, assertSetOk, type JmapCreated, type JmapSetResponse } from "../core/set.js";
+import { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./methods.js";
 import type {
   SieveScript,
+  SieveScriptCreate,
   SieveScriptGetRequest,
   SieveScriptGetResponse,
   SieveScriptSetRequest,
   SieveScriptValidateRequest,
   SieveScriptValidateResponse,
-} from "./types";
+} from "./types.js";
 
 export class JmapSieve {
   constructor(private readonly client: JmapClient) {}
@@ -24,7 +25,7 @@ export class JmapSieve {
 
   async create(
     accountId: AccountId,
-    script: { name: string; blobId: string },
+    script: SieveScriptCreate,
     activate = false,
   ): Promise<JmapCreated> {
     const response = await this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
@@ -49,10 +50,7 @@ export class JmapSieve {
       { capabilities: CORE_SIEVE_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notUpdated", scriptId);
-    if (error) {
-      throw new Error(error.description || "Failed to update sieve script");
-    }
+    assertSetOk(response, "sieve script");
 
     return response;
   }
@@ -66,29 +64,33 @@ export class JmapSieve {
       { capabilities: CORE_SIEVE_CAPABILITIES },
     );
 
-    const error = getSetError(response, "notDestroyed", scriptId);
-    if (error) {
-      throw new Error(error.description || "Failed to delete sieve script");
-    }
+    assertSetOk(response, "sieve script");
 
     return response;
   }
 
+  /** @throws When the server didn't activate it: an unknown id is ignored, not refused (RFC 9661 2.4). */
   async activate(accountId: AccountId, scriptId: string): Promise<JmapSetResponse> {
-    return this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
+    const response = await this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
         onSuccessActivateScript: scriptId,
       }),
       { capabilities: CORE_SIEVE_CAPABILITIES },
     );
+
+    if (response.updated?.[scriptId]?.isActive !== true) {
+      throw new Error(`The server didn't activate the sieve script ${scriptId}`);
+    }
+
+    return response;
   }
 
   async deactivate(accountId: AccountId): Promise<JmapSetResponse> {
     return this.client.invoke<SieveScriptSetRequest, JmapSetResponse>(
       new SieveScriptSet({
         accountId: accountId.value,
-        onSuccessActivateScript: null,
+        onSuccessDeactivateScript: true,
       }),
       { capabilities: CORE_SIEVE_CAPABILITIES },
     );

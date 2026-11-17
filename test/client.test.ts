@@ -9,14 +9,16 @@ import {
   JmapHttpError,
   JmapNetworkError,
   JmapProtocolError,
-  MailboxId,
+  ContactCardGet,
+  ContactCardQuery,
+  paginate,
 } from "jmap-lib";
 
 test("JmapBatch auto-generates call ids and sends a batched request", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "token",
+    authorization: "Bearer token",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async (url, init) => {
       requests.push({ url: String(url), init });
@@ -34,9 +36,9 @@ test("JmapBatch auto-generates call ids and sends a batched request", async () =
 
   const batch = client.batch();
   const firstCallId = batch.call(
-    EmailQuery.page({
-      accountId: AccountId.of("acc"),
-      mailboxId: MailboxId.of("inbox"),
+    new EmailQuery({
+      accountId: "acc",
+      filter: { inMailbox: "inbox" },
       limit: 10,
       position: 0,
     }),
@@ -63,7 +65,7 @@ test("JmapClient.invoke posts a single method with headers", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (url, init) => {
       requests.push({ url: String(url), init });
@@ -93,7 +95,7 @@ test("JmapClient accepts a custom authorization header", async () => {
   const requests: Array<{ init?: RequestInit }> = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    authorizationHeader: "Basic dXNlcjpwYXNz",
+    authorization: "Basic dXNlcjpwYXNz",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       requests.push({ init });
@@ -117,7 +119,7 @@ test("JmapClient accepts a custom authorization header", async () => {
 test("JmapClient throws on HTTP errors", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async () => new Response("bad request", { status: 400 }),
   });
@@ -131,7 +133,7 @@ test("JmapClient throws on HTTP errors", async () => {
 test("JmapClient throws on JMAP method errors", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async () =>
       new Response(
@@ -153,7 +155,7 @@ test("JmapClient throws on JMAP method errors", async () => {
 test("JmapClient throws a network error when the request gets no response", async () => {
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async () => { throw new TypeError("Failed to fetch"); },
   });
@@ -168,7 +170,7 @@ test("JmapClient.sendRaw sends createdIds and keeps a method's error among the r
   let body: { createdIds?: Record<string, string>; methodCalls: unknown[] } | undefined;
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "secret",
+    authorization: "Bearer secret",
     capabilities: ["urn:ietf:params:jmap:core"],
     fetch: async (_url, init) => {
       body = JSON.parse(String(init?.body));
@@ -193,7 +195,7 @@ test("onResponse sees each request's calls and response before the caller gets i
   const seen: string[] = [];
   const client = new JmapClient({
     endpoint: "https://example.test/jmap",
-    accessToken: "token",
+    authorization: "Bearer token",
     capabilities: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
     fetch: async () => new Response(JSON.stringify({
       methodResponses: [["Email/get", { list: [], state: "s1" }, "0"]],
@@ -208,4 +210,61 @@ test("onResponse sees each request's calls and response before the caller gets i
   await client.invoke(EmailGet.byIds(AccountId.of("acc"), []));
   seen.push("caller");
   assert.deepEqual(seen, ["Email/get:Email/get:x", "caller"]);
+});
+
+test("paginate continues past a capped page and advances by query ids", async () => {
+  const positions: number[] = [];
+  const client = new JmapClient({
+    endpoint: "https://example.test/jmap",
+    authorization: "Bearer token",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async (_url, init) => {
+      const [[, query]] = JSON.parse(String(init?.body)).methodCalls as [string, { position: number }][];
+      positions.push(query.position);
+      // The server caps a page at 2; the second page's c3 is not found
+      const pages: Record<number, { ids: string[]; found: string[] }> = {
+        0: { ids: ["c1", "c2"], found: ["c1", "c2"] },
+        2: { ids: ["c3", "c4"], found: ["c4"] },
+        4: { ids: [], found: [] },
+      };
+      const page = pages[query.position];
+      return new Response(JSON.stringify({
+        methodResponses: [
+          ["ContactCard/query", { accountId: "acc", ids: page.ids, position: query.position, limit: 2 }, "0"],
+          ["ContactCard/get", { accountId: "acc", state: "s", list: page.found.map((id) => ({ id })), notFound: [] }, "1"],
+        ],
+      }));
+    },
+  });
+
+  const cards = await paginate<{ id: string }>(
+    client,
+    undefined,
+    (position, limit) => new ContactCardQuery({ accountId: "acc", position, limit }),
+    (queryCallId) => ContactCardGet.byQueryResult(AccountId.of("acc"), queryCallId),
+  );
+
+  assert.deepEqual(cards.map((card) => card.id), ["c1", "c2", "c4"]);
+  assert.deepEqual(positions, [0, 2, 4]);
+});
+
+test("A request the server refuses with problem details carries them", async () => {
+  const client = new JmapClient({
+    endpoint: "https://example.test/jmap",
+    authorization: "Bearer token",
+    capabilities: ["urn:ietf:params:jmap:core"],
+    fetch: async () => new Response(JSON.stringify({
+      type: "urn:ietf:params:jmap:error:limit",
+      limit: "maxCallsInRequest",
+      status: 400,
+      detail: "The request has more calls than the server allows.",
+    }), { status: 400, headers: { "content-type": "application/problem+json" } }),
+  });
+
+  await assert.rejects(() => client.invoke(new EmailQuery({ accountId: "acc" })), (error: unknown) => {
+    assert.ok(error instanceof JmapHttpError);
+    assert.equal(error.problem?.limit, "maxCallsInRequest");
+    assert.equal(error.message, "The request has more calls than the server allows.");
+    return true;
+  });
 });

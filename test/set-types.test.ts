@@ -57,8 +57,8 @@ test("ContactCardUpdate supports nested patch paths over mutable contact data", 
     "members/contact-2": true,
   };
 
-  assert.equal(update["emails/work"]?.address, "user@example.test");
-  assert.equal(update["addresses/home"]?.full, "Stockholm");
+  assert.deepEqual(update["emails/work"], { address: "user@example.test" });
+  assert.deepEqual(update["addresses/home"], { full: "Stockholm" });
   assert.equal(update["members/contact-2"], true);
 });
 

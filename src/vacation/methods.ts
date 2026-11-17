@@ -1,10 +1,11 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId } from "../core/ids";
+import type { JmapMethod } from "../core/method.js";
+import type { JmapSetResponse } from "../core/set.js";
+import { AccountId } from "../core/ids.js";
 import type {
   VacationResponseGetRequest,
   VacationResponseGetResponse,
   VacationResponseSetRequest,
-} from "./types";
+} from "./types.js";
 
 export class VacationResponseGet
   implements JmapMethod<VacationResponseGetRequest, VacationResponseGetResponse>
@@ -25,7 +26,7 @@ export class VacationResponseGet
 }
 
 export class VacationResponseSet
-  implements JmapMethod<VacationResponseSetRequest, import("../core/set").JmapSetResponse>
+  implements JmapMethod<VacationResponseSetRequest, JmapSetResponse>
 {
   readonly methodName = "VacationResponse/set";
   readonly arguments: VacationResponseSetRequest;

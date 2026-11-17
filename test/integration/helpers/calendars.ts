@@ -23,7 +23,7 @@ export async function createCalendarsIntegrationContext(
   }
 
   const calendarsClient = new JmapCalendars(context.client);
-  const calendars = await calendarsClient.list(context.accountId);
+  const calendars = (await calendarsClient.getCalendars(context.accountId)).list;
   assert.ok(calendars.length > 0, "expected at least one calendar");
 
   return {

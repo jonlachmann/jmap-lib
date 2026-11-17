@@ -1,6 +1,7 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId, CallId } from "../core/ids";
-import type { JmapSetResponse } from "../core/set";
+import { resultOf } from "../core/reference.js";
+import type { JmapMethod } from "../core/method.js";
+import { AccountId, CallId } from "../core/ids.js";
+import type { JmapSetResponse } from "../core/set.js";
 import type {
   NoteBookGetRequest,
   NoteBookGetResponse,
@@ -19,7 +20,7 @@ import type {
   NoteQueryChangesRequest,
   NoteQueryChangesResponse,
   NoteProperty,
-} from "./types";
+} from "./types.js";
 
 // --- NoteBook methods ---
 
@@ -79,11 +80,7 @@ export class NoteGet implements JmapMethod<NoteGetRequest, NoteGetResponse> {
   ): NoteGet {
     return new NoteGet({
       accountId: accountId.value,
-      "#ids": {
-        resultOf: queryCallId.value,
-        name: "Note/query",
-        path: "/ids",
-      },
+      "#ids": resultOf(queryCallId, "Note/query", "/ids"),
       properties,
     });
   }

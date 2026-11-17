@@ -1,6 +1,6 @@
-import type { JmapMethod } from "../core/method";
-import { AccountId } from "../core/ids";
-import type { QuotaGetRequest, QuotaGetResponse } from "./types";
+import type { JmapMethod } from "../core/method.js";
+import { AccountId } from "../core/ids.js";
+import type { QuotaGetRequest, QuotaGetResponse } from "./types.js";
 
 export class QuotaGet implements JmapMethod<QuotaGetRequest, QuotaGetResponse> {
   readonly methodName = "Quota/get";
