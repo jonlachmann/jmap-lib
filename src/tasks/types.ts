@@ -29,6 +29,17 @@ export interface TaskRights {
   mayDelete: boolean;
 }
 
+/** Every right TaskRights holds, for code that reads or sets them by name. */
+export const TASK_RIGHTS = [
+  "mayReadItems",
+  "mayWriteAll",
+  "mayWriteOwn",
+  "mayUpdatePrivate",
+  "mayRSVP",
+  "mayAdmin",
+  "mayDelete",
+] as const satisfies readonly (keyof TaskRights)[];
+
 // --- TaskList ---
 
 export interface TaskList {

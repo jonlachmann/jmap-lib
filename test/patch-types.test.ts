@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { applyPatch, patchPathKey } from "jmap-lib";
 import type {
   EmailMutable,
   EmailUpdate,
@@ -51,4 +52,17 @@ test("EmailUpdate patches only mailboxes and keywords (RFC 8621 4.6)", () => {
   assert.ok(immutable);
   assert.equal(update["keywords/$flagged"], true);
   assert.equal(update["mailboxIds/inbox"], true);
+});
+
+test("applyPatch sets and takes away by path, with JSON Pointer escapes, on a copy", () => {
+  const before = { id: "m1", keywords: { $seen: true, "a/b": true }, mailboxIds: { inbox: true } };
+  const after = applyPatch(before, {
+    [`keywords/${patchPathKey("a/b")}`]: null,
+    [`keywords/${patchPathKey("~x")}`]: true,
+    mailboxIds: { archive: true },
+    "new/deep": 1,
+  });
+
+  assert.deepEqual(after, { id: "m1", keywords: { $seen: true, "~x": true }, mailboxIds: { archive: true }, new: { deep: 1 } });
+  assert.deepEqual(before.keywords, { $seen: true, "a/b": true });
 });

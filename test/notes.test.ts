@@ -41,8 +41,8 @@ const acc = AccountId.of("acc");
 // --- Capability constants ---
 
 test("notes capability uses the private URI", () => {
-  assert.equal(JMAP_NOTES_CAPABILITY, "urn:x-jmap-lib:notes");
-  assert.deepEqual([...CORE_NOTES_CAPABILITIES], ["urn:ietf:params:jmap:core", "urn:x-jmap-lib:notes"]);
+  assert.equal(JMAP_NOTES_CAPABILITY, "https://openmailserver.org/jmap/notes");
+  assert.deepEqual([...CORE_NOTES_CAPABILITIES], ["urn:ietf:params:jmap:core", "https://openmailserver.org/jmap/notes"]);
 });
 
 // --- Method classes ---

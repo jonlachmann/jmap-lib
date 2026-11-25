@@ -16,14 +16,12 @@ test("integration: fetches quota information", { skip }, async () => {
 
   assert.ok(Array.isArray(quota.list));
   for (const item of quota.list) {
-    if (item.used !== undefined) {
-      assert.equal(typeof item.used, "number");
-    }
-    if (item.limit !== undefined) {
-      assert.equal(typeof item.limit, "number");
-    }
-    if (item.hardLimit !== undefined) {
-      assert.equal(typeof item.hardLimit, "number");
-    }
+    assert.equal(typeof item.id, "string");
+    assert.ok(["count", "octets"].includes(item.resourceType));
+    assert.ok(["account", "domain", "global"].includes(item.scope));
+    assert.equal(typeof item.used, "number");
+    assert.equal(typeof item.hardLimit, "number");
+    assert.equal(typeof item.name, "string");
+    assert.ok(Array.isArray(item.types));
   }
 });

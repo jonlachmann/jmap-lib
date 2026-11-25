@@ -17,6 +17,7 @@ export type {
 export type { CoreEchoRequest, CoreEchoResponse } from "./core/core-methods.js";
 export { AccountId, CallId } from "./core/ids.js";
 export type { JmapChangesArgs, JmapChangesResponse } from "./core/changes.js";
+export { getInChunks } from "./core/get.js";
 export type { JmapGetArgs, JmapGetResponse } from "./core/get.js";
 export type { JmapCopyArgs, JmapCopyResponse } from "./core/copy.js";
 export { resultOf } from "./core/reference.js";
@@ -24,6 +25,7 @@ export type { JmapResultReference } from "./core/reference.js";
 export { paginate } from "./core/paginate.js";
 export { inAny } from "./core/query.js";
 export type { JmapMethod } from "./core/method.js";
+export { applyPatch, patchPathKey } from "./core/patch.js";
 export type {
   JmapNestedPatchPath,
   JmapPatchObject,
@@ -44,12 +46,13 @@ export type {
 } from "./core/query.js";
 export { JmapProtocolError, JmapResponse, type JmapMethodErrorType, type RawJmapResponse } from "./core/response.js";
 export type { JmapCreated, JmapSetArgs, JmapSetError, JmapSetResponse } from "./core/set.js";
-export { assertSetOk, CREATION_ID, createdOne, getSetError, JmapSetRefusedError } from "./core/set.js";
+export { assertSetOk, CREATION_ID, createdOne, getSetError, JmapSetRefusedError, setInChunks } from "./core/set.js";
 export {
   createBasicAuthorizationHeader,
   discoverJmapSession,
   expandUriTemplate,
   resolvePrimaryAccountId,
+  sharedAccounts,
 } from "./core/session.js";
 export type { JmapCoreCapability, JmapSession, JmapSessionAccount } from "./core/session.js";
 export { connectEventStream, SseParser } from "./core/event-stream.js";
@@ -75,13 +78,14 @@ export {
   MailboxQuery,
   MailboxQueryChanges,
   MailboxSet,
+  SearchSnippetGet,
   ThreadChanges,
   ThreadGet,
 } from "./mail/methods.js";
 export { MailboxId } from "./mail/ids.js";
 export { JmapIdentities } from "./mail/jmap-identities.js";
 export { JmapMail } from "./mail/jmap-mail.js";
-export type * from "./mail/types.js";
+export * from "./mail/types.js";
 export { QuotaGet } from "./quota/methods.js";
 export { JmapQuota } from "./quota/jmap-quota.js";
 export type * from "./quota/types.js";
@@ -99,7 +103,7 @@ export {
   ContactCardSet,
 } from "./contacts/methods.js";
 export { JmapContacts } from "./contacts/jmap-contacts.js";
-export type * from "./contacts/types.js";
+export * from "./contacts/types.js";
 export {
   CalendarChanges,
   CalendarEventChanges,
@@ -116,7 +120,7 @@ export {
 } from "./calendars/methods.js";
 export { DEFAULT_CALENDAR_EVENT_PROPERTIES, JmapCalendars } from "./calendars/jmap-calendars.js";
 export type * from "./jscalendar/types.js";
-export type * from "./calendars/types.js";
+export * from "./calendars/types.js";
 export { SieveScriptGet, SieveScriptSet, SieveScriptValidate } from "./sieve/methods.js";
 export { JmapSieve } from "./sieve/jmap-sieve.js";
 export type * from "./sieve/types.js";
@@ -137,7 +141,7 @@ export {
   TaskNotificationQueryChanges,
 } from "./tasks/methods.js";
 export { DEFAULT_TASK_PROPERTIES, JmapTasks } from "./tasks/jmap-tasks.js";
-export type * from "./tasks/types.js";
+export * from "./tasks/types.js";
 export {
   NoteBookGet,
   NoteBookChanges,
@@ -150,7 +154,7 @@ export {
   NoteQueryChanges,
 } from "./notes/methods.js";
 export { DEFAULT_NOTE_PROPERTIES, JmapNotes } from "./notes/jmap-notes.js";
-export type * from "./notes/types.js";
+export * from "./notes/types.js";
 export {
   PrincipalChanges,
   PrincipalGet,

@@ -11,6 +11,7 @@ import {
   JmapProtocolError,
   ContactCardGet,
   ContactCardQuery,
+  getInChunks,
   paginate,
 } from "jmap-lib";
 
@@ -246,6 +247,17 @@ test("paginate continues past a capped page and advances by query ids", async ()
 
   assert.deepEqual(cards.map((card) => card.id), ["c1", "c2", "c4"]);
   assert.deepEqual(positions, [0, 2, 4]);
+});
+
+test("getInChunks reads at most maxObjectsInGet ids a request, keeping the chunks' order", async () => {
+  const chunks: string[][] = [];
+  const objects = await getInChunks({ limits: { maxObjectsInGet: 2 } }, ["a", "b", "c", "d", "e"], async (chunk) => {
+    chunks.push(chunk);
+    return chunk.map((id) => ({ id }));
+  });
+
+  assert.deepEqual(chunks, [["a", "b"], ["c", "d"], ["e"]]);
+  assert.deepEqual(objects.map((object) => object.id), ["a", "b", "c", "d", "e"]);
 });
 
 test("A request the server refuses with problem details carries them", async () => {

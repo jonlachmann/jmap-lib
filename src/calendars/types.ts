@@ -28,6 +28,18 @@ export interface CalendarRights {
   mayDelete: boolean;
 }
 
+/** Every right CalendarRights holds, for code that reads or sets them by name. */
+export const CALENDAR_RIGHTS = [
+  "mayReadFreeBusy",
+  "mayReadItems",
+  "mayWriteAll",
+  "mayWriteOwn",
+  "mayUpdatePrivate",
+  "mayRSVP",
+  "mayShare",
+  "mayDelete",
+] as const satisfies readonly (keyof CalendarRights)[];
+
 export interface Calendar {
   id: string;
   name: string;

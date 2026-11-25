@@ -21,6 +21,7 @@ import {
   MailboxQuery,
   MailboxQueryChanges,
   MailboxSet,
+  SearchSnippetGet,
   ThreadChanges,
   ThreadGet,
 } from "./methods.js";
@@ -69,6 +70,8 @@ import type {
   ThreadChangesRequest,
   ThreadChangesResponse,
   ThreadGetRequest,
+  SearchSnippetGetRequest,
+  SearchSnippetGetResponse,
   ThreadGetResponse,
   MailboxGetRequest,
   MailboxGetResponse,
@@ -362,6 +365,17 @@ export class JmapMail {
       properties: options.properties,
       collapseThreads: options.collapseThreads,
     });
+  }
+
+  /** Read where each email matches the filter it was found with (RFC 8621 5.1), for showing the matches in a list. */
+  async getSearchSnippets(
+    accountId: AccountId,
+    filter: JmapFilter<EmailQueryFilter>,
+    emailIds: readonly string[],
+  ): Promise<SearchSnippetGetResponse> {
+    return this.client.invoke<SearchSnippetGetRequest, SearchSnippetGetResponse>(
+      new SearchSnippetGet({ accountId: accountId.value, filter, emailIds }),
+    );
   }
 
   async getEmail(

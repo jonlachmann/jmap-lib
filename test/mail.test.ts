@@ -11,6 +11,7 @@ import {
   MailboxQuery,
   MailboxQueryChanges,
   MailboxSet,
+  SearchSnippetGet,
 } from "jmap-lib";
 
 test("EmailGet.byQueryResult encapsulates #ids references", () => {
@@ -24,6 +25,16 @@ test("EmailGet.byQueryResult encapsulates #ids references", () => {
       path: "/ids",
     },
     properties: ["id", "subject"],
+  });
+});
+
+test("SearchSnippetGet.byQueryResult takes the query's ids and filter", () => {
+  const method = SearchSnippetGet.byQueryResult(AccountId.of("acc"), CallId.of("query-1"), { text: "budget" });
+
+  assert.deepEqual(method.arguments, {
+    accountId: "acc",
+    filter: { text: "budget" },
+    "#emailIds": { resultOf: "query-1", name: "Email/query", path: "/ids" },
   });
 });
 

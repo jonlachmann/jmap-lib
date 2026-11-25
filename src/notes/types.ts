@@ -7,7 +7,7 @@ import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChan
 import type { JmapSetArgs } from "../core/set.js";
 import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes.js";
 
-// Types follow rfcs/draft-jmap-notes-00.txt.
+// Types follow JMAP for Notes, draft-jmap-notes-00 (https://openmailserver.org/jmap/notes).
 
 // --- Capability ---
 
@@ -28,6 +28,16 @@ export interface NoteBookRights {
   mayAdmin: boolean;
   mayDelete: boolean;
 }
+
+/** Every right NoteBookRights holds, for code that reads or sets them by name. */
+export const NOTE_BOOK_RIGHTS = [
+  "mayReadItems",
+  "mayWriteAll",
+  "mayWriteOwn",
+  "mayUpdatePrivate",
+  "mayAdmin",
+  "mayDelete",
+] as const satisfies readonly (keyof NoteBookRights)[];
 
 // --- NoteBook ---
 

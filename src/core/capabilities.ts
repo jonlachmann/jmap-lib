@@ -8,6 +8,7 @@ export const JMAP_BLOB_CAPABILITY = "urn:ietf:params:jmap:blob";
 export const JMAP_CALENDARS_CAPABILITY = "urn:ietf:params:jmap:calendars";
 export const JMAP_CALENDARS_PARSE_CAPABILITY = "urn:ietf:params:jmap:calendars:parse";
 export const JMAP_SIEVE_CAPABILITY = "urn:ietf:params:jmap:sieve";
+export const JMAP_QUOTA_CAPABILITY = "urn:ietf:params:jmap:quota";
 
 export const CORE_MAIL_CAPABILITIES = [
   JMAP_CORE_CAPABILITY,
@@ -59,8 +60,8 @@ export const CORE_TASKS_CAPABILITIES = [
   JMAP_TASKS_CAPABILITY,
 ] as const;
 
-// Private capability from rfcs/draft-jmap-notes-00.txt (not IETF-registered).
-export const JMAP_NOTES_CAPABILITY = "urn:x-jmap-lib:notes";
+// JMAP for Notes (draft-jmap-notes-00), not registered with IANA, so named by a URL on its owner's domain (RFC 8620 2).
+export const JMAP_NOTES_CAPABILITY = "https://openmailserver.org/jmap/notes";
 
 export const CORE_NOTES_CAPABILITIES = [
   JMAP_CORE_CAPABILITY,

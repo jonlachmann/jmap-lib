@@ -227,6 +227,14 @@ export interface AddressBookRights {
   mayDelete: boolean;
 }
 
+/** Every right AddressBookRights holds, for code that reads or sets them by name. */
+export const ADDRESS_BOOK_RIGHTS = [
+  "mayRead",
+  "mayWrite",
+  "mayShare",
+  "mayDelete",
+] as const satisfies readonly (keyof AddressBookRights)[];
+
 export interface AddressBook {
   id: string;
   name: string;

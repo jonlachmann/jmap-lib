@@ -66,3 +66,30 @@ export type JmapPatchObject<T extends object> =
   Partial<T> & {
     [Path in JmapNestedPatchPath<T>]?: JmapPatchEntryValue<T, Path> | null;
   };
+
+/** Escape a key for a patch path, as JSON Pointer does (RFC 6901 3): a keyword or id may hold "~" or "/". */
+export function patchPathKey(key: string): string {
+  return key.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+/**
+ * Apply a PatchObject (RFC 8620 5.3) to a copy of the object: each key a path into it, its parts escaped as JSON
+ * Pointer's, null taking away what it names. A path through a missing object creates it.
+ */
+export function applyPatch<T>(object: T, patch: Readonly<Record<string, unknown>>): T {
+  const copy = structuredClone(object) as Record<string, unknown>;
+  for (const [path, value] of Object.entries(patch)) {
+    const keys = path.split("/").map((key) => key.replaceAll("~1", "/").replaceAll("~0", "~"));
+    let target = copy;
+    for (const key of keys.slice(0, -1)) {
+      target = (target[key] ??= {}) as Record<string, unknown>;
+    }
+    const last = keys[keys.length - 1];
+    if (value === null) {
+      delete target[last];
+    } else {
+      target[last] = value;
+    }
+  }
+  return copy as T;
+}

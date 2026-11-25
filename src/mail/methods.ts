@@ -41,6 +41,8 @@ import type {
   MailboxProperty,
   MailboxGetRequest,
   MailboxGetResponse,
+  SearchSnippetGetRequest,
+  SearchSnippetGetResponse,
   ThreadChangesRequest,
   ThreadChangesResponse,
   ThreadGetRequest,
@@ -130,6 +132,24 @@ export class EmailQueryChanges
 
   constructor(args: EmailQueryChangesRequest) {
     this.arguments = args;
+  }
+}
+
+export class SearchSnippetGet implements JmapMethod<SearchSnippetGetRequest, SearchSnippetGetResponse> {
+  readonly methodName = "SearchSnippet/get";
+  readonly arguments: SearchSnippetGetRequest;
+
+  constructor(args: SearchSnippetGetRequest) {
+    this.arguments = args;
+  }
+
+  /** The snippets of the emails an Email/query earlier in the same request found, with the filter it took. */
+  static byQueryResult(accountId: AccountId, queryCallId: CallId, filter: SearchSnippetGetRequest["filter"]): SearchSnippetGet {
+    return new SearchSnippetGet({
+      accountId: accountId.value,
+      filter,
+      "#emailIds": resultOf(queryCallId, "Email/query", "/ids"),
+    });
   }
 }
 

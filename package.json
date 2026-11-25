@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "Framework-agnostic TypeScript JMAP library with typed protocol methods, convenience clients, and real-server integration tests",
   "license": "MIT",
+  "author": "Jon Lachmann",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jonlachmann/jmap-lib.git"
+  },
+  "homepage": "https://github.com/jonlachmann/jmap-lib#readme",
+  "bugs": {
+    "url": "https://github.com/jonlachmann/jmap-lib/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,13 +24,15 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "test:dist": "npm run build && node --input-type=module -e \"import('jmap-lib').then((lib) => { if (typeof lib.JmapClient !== 'function') process.exit(1); })\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "npm run typecheck && npm run test:unit && npm run test:integration",
     "test:unit": "tsx --test test/*.test.ts",
-    "test:integration": "tsx --test --test-concurrency=1 test/integration/**/*.test.ts"
+    "test:integration": "tsx --test --test-concurrency=1 test/integration/**/*.test.ts",
+    "prepublishOnly": "npm run typecheck && npm run test:unit && npm run test:dist"
   },
   "engines": {
     "node": ">=20"

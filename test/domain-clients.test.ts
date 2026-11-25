@@ -34,7 +34,7 @@ test("JmapClient exposes configured capabilities", () => {
   assert.equal(client.hasCapability(JMAP_CALENDARS_CAPABILITY), false);
 });
 
-test("JmapQuota.get delegates to Quota/get", async () => {
+test("JmapQuota.get asks for Quota/get under the quota capability, beside the client's", async () => {
   let using: string[] | undefined;
   const quota = new JmapQuota(new JmapClient({
     endpoint: "https://example.test/jmap",
@@ -45,7 +45,7 @@ test("JmapQuota.get delegates to Quota/get", async () => {
       using = body.using;
       return new Response(
         JSON.stringify({
-          methodResponses: [["Quota/get", { accountId: "acc", list: [{ used: 1, hardLimit: 10 }] }, "0"]],
+          methodResponses: [["Quota/get", { accountId: "acc", list: [{ id: "q1", resourceType: "octets", used: 1, hardLimit: 10, scope: "account", name: "Mail", types: ["Email"] }] }, "0"]],
         }),
         { status: 200 },
       );
@@ -55,7 +55,7 @@ test("JmapQuota.get delegates to Quota/get", async () => {
   const response = await quota.get(AccountId.of("acc"));
 
   assert.equal(response.list[0].used, 1);
-  assert.deepEqual(using, ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]);
+  assert.deepEqual(using, ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:quota"]);
 });
 
 test("JmapIdentities.list uses submission capabilities", async () => {

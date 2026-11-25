@@ -97,6 +97,13 @@ export function resolvePrimaryAccountId(
   return withCapability.length === 1 ? withCapability[0] : undefined;
 }
 
+/** The accounts others shared with the user (isPersonal false, RFC 9670 2) that have the capability, by id. */
+export function sharedAccounts(session: JmapSession, capability: string): Array<{ id: string; account: JmapSessionAccount }> {
+  return Object.entries(session.accounts)
+    .filter(([, account]) => !account.isPersonal && capability in account.accountCapabilities)
+    .map(([id, account]) => ({ id, account }));
+}
+
 /** Fill a URI template's variables (RFC 6570 level 1, as the session's URLs are written), each percent-encoded. */
 export function expandUriTemplate(template: string, variables: Record<string, string>): string {
   return template.replace(/\{(\w+)}/g, (match, name: string) =>

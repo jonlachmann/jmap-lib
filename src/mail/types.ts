@@ -4,7 +4,7 @@ import type { JmapQueryResponse } from "../core/query.js";
 import type { JmapChangesArgs, JmapChangesResponse } from "../core/changes.js";
 import type { JmapGetArgs } from "../core/get.js";
 import type { JmapPatchObject } from "../core/patch.js";
-import type { JmapComparator, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query.js";
+import type { JmapComparator, JmapFilter, JmapQueryArgs, JmapQueryChangesArgs, JmapQueryChangesResponse } from "../core/query.js";
 import type { JmapSetArgs, JmapSetError } from "../core/set.js";
 import type { JmapCopyArgs, JmapCopyResponse } from "../core/copy.js";
 
@@ -33,6 +33,28 @@ export type MailboxProperty =
   | "isSubscribed"
   | "myRights";
 
+/** RFC 8621 1.3.1: the mail capability in an account's accountCapabilities. */
+export interface JmapMailAccountCapability {
+  /** Null for no limit. */
+  maxMailboxesPerEmail: number | null;
+  /** Null for no limit. */
+  maxMailboxDepth: number | null;
+  /** In octets of UTF-8. */
+  maxSizeMailboxName: number;
+  /** In octets, as the attachments' sizes add up before encoding. */
+  maxSizeAttachmentsPerEmail: number;
+  emailQuerySortOptions: string[];
+  mayCreateTopLevelMailbox: boolean;
+}
+
+/** RFC 8621 1.3.2: the submission capability in an account's accountCapabilities. */
+export interface JmapSubmissionAccountCapability {
+  /** In seconds; 0 when sending can't be delayed. */
+  maxDelayedSend: number;
+  /** The SMTP extensions the server offers, by EHLO keyword, each with its arguments ("SIZE": ["10240000"]). */
+  submissionExtensions: Record<string, string[]>;
+}
+
 /** RFC 8621 2: what a user may do with a mailbox. */
 export interface MailboxRights {
   mayReadItems: boolean;
@@ -45,6 +67,19 @@ export interface MailboxRights {
   mayDelete: boolean;
   maySubmit: boolean;
 }
+
+/** Every right MailboxRights holds, for code that reads or sets them by name. */
+export const MAILBOX_RIGHTS = [
+  "mayReadItems",
+  "mayAddItems",
+  "mayRemoveItems",
+  "maySetSeen",
+  "maySetKeywords",
+  "mayCreateChild",
+  "mayRename",
+  "mayDelete",
+  "maySubmit",
+] as const satisfies readonly (keyof MailboxRights)[];
 
 export interface JmapMailbox {
   id: string;
@@ -469,6 +504,30 @@ export type ThreadGetResponse = JmapGetResponse<Thread>;
 export interface ThreadChangesRequest extends JmapChangesArgs {}
 
 export interface ThreadChangesResponse extends JmapChangesResponse {}
+
+/** RFC 8621 5.1: where an email matches a search, with the matches marked by <mark> in HTML-escaped text. */
+export interface SearchSnippet {
+  emailId: string;
+  /** Null when the subject has no match. */
+  subject: string | null;
+  /** Null when the body has no match. */
+  preview: string | null;
+}
+
+export interface SearchSnippetGetRequest {
+  accountId: string;
+  /** The filter the emails were found with, as Email/query took it. */
+  filter?: JmapFilter<EmailQueryFilter> | null;
+  emailIds?: readonly string[];
+  /** The ids from an earlier call's result, in place of emailIds. */
+  "#emailIds"?: JmapResultReference;
+}
+
+export interface SearchSnippetGetResponse {
+  accountId: string;
+  list: SearchSnippet[];
+  notFound: string[] | null;
+}
 
 export interface Identity {
   id: string;
